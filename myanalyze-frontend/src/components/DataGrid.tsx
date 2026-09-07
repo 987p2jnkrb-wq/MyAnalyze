@@ -10,6 +10,7 @@ import RefreshButton from "./RefreshButton";
 import DataGridCellEditor from "./data-grid/DataGridCellEditor";
 import { useDataGridInlineEdit } from "./data-grid/useDataGridInlineEdit";
 import { useDataGridSelection } from "./data-grid/useDataGridSelection";
+import { useUiText } from "../i18n";
 
 export type { DataGridColumn, DataGridProps } from "./data-grid/types";
 
@@ -25,6 +26,7 @@ export default function DataGrid<T>({
   onInlineSave, validateInlineRow, showFooter = true, preserveRowOrder = false, getRowClassName, rowDrag, onDeleteSelected, deleteSelectedConfirmMessage,
 }: DataGridProps<T>) {
   const selectionScope = React.useContext(DataGridSelectionScopeContext);
+  const t = useUiText();
   const [profileName, setProfileName] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(defaultPageSize);
@@ -120,7 +122,7 @@ export default function DataGrid<T>({
         onClick={() => clearColumnFilter(column.key)}
       >
         <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected.length === 0 ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>{selected.length === 0 && <Check size={12} aria-hidden="true" />}</span>
-        Wszystkie
+        {t("Wszystkie")}
       </button>
       {choices.map((value) => {
         const active = selected.includes(value);
@@ -148,7 +150,7 @@ export default function DataGrid<T>({
   };
   const exportCsv = () => {
     const exportRows = selectedCount ? sortedRows.filter((row) => selectedIds.has(String(getRowId(row)))) : sortedRows;
-    const lines = [visibleColumns.map((column) => csvCell(column.label)).join(";")];
+    const lines = [visibleColumns.map((column) => csvCell(t(column.label))).join(";")];
     for (const row of exportRows) lines.push(visibleColumns.map((column) => csvCell(column.exportValue ? column.exportValue(row) : column.value(row))).join(";"));
     const blob = new Blob(["\ufeff", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -195,13 +197,13 @@ export default function DataGrid<T>({
             />
           </label>
           {filterableColumns.length > 0 && <>
-            <IconButton label={activeFilterCount ? `Filtry — aktywne: ${activeFilterCount}` : "Filtry"} className={openPanel === "filters" || activeFilterCount ? "border-blue-500 bg-blue-50 text-blue-700" : ""} onClick={() => setOpenPanel((current) => current === "filters" ? null : "filters")}><ListFilter size={18} aria-hidden="true" /></IconButton>
+            <IconButton label={activeFilterCount ? `Filtry - aktywne: ${activeFilterCount}` : "Filtry"} className={openPanel === "filters" || activeFilterCount ? "border-blue-500 bg-blue-50 text-blue-700" : ""} onClick={() => setOpenPanel((current) => current === "filters" ? null : "filters")}><ListFilter size={18} aria-hidden="true" /></IconButton>
             {openPanel === "filters" && <div className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
               <div className="mb-2 flex items-center justify-between gap-3"><strong className="text-sm">Filtry</strong>{activeFilterCount > 0 && <button type="button" className="text-sm font-medium text-blue-700 hover:underline" onClick={() => updateView((current) => ({ ...current, filters: {} }))}>Wyczyść</button>}</div>
               <div className="space-y-2">{filterableColumns.map((column) => {
                 const selectedCount = view.filters[column.key]?.length ?? 0;
                 return <details key={column.key} className="rounded-lg border border-slate-200" open={selectedCount > 0 || filterableColumns.length === 1}>
-                  <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold text-slate-700">{column.label}{selectedCount > 0 && <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">{selectedCount}</span>}</summary>
+                  <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold text-slate-700">{t(column.label)}{selectedCount > 0 && <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">{selectedCount}</span>}</summary>
                   <div className="max-h-56 overflow-y-auto border-t border-slate-100 p-2">{renderFilterChoices(column)}</div>
                 </details>;
               })}</div>
@@ -211,13 +213,13 @@ export default function DataGrid<T>({
           {openPanel === "columns" && <div className="absolute right-0 top-full z-40 mt-2 max-h-96 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
             {orderedColumns.filter((column) => column.hideable !== false).map((column, index) => (
               <div key={column.key} className="flex items-center gap-2 py-1 text-sm">
-                <input type="checkbox" aria-label={`Pokaż ${column.label}`} checked={view.visible.includes(column.key)} onChange={() => updateView((current) => {
+                <input type="checkbox" aria-label={`Pokaż ${t(column.label)}`} checked={view.visible.includes(column.key)} onChange={() => updateView((current) => {
                   const visible = current.visible.includes(column.key) ? current.visible.filter((key) => key !== column.key) : [...current.visible, column.key];
                   return visible.length ? { ...current, visible } : current;
                 })} />
-                <span className="min-w-0 flex-1 whitespace-normal break-words leading-5">{column.label}</span>
-                <button type="button" className="shrink-0 rounded border px-1.5 disabled:opacity-30" disabled={index === 0} onClick={() => moveColumn(column.key, -1)} aria-label={`Przesuń ${column.label} w lewo`}>←</button>
-                <button type="button" className="shrink-0 rounded border px-1.5 disabled:opacity-30" disabled={index === orderedColumns.length - 1} onClick={() => moveColumn(column.key, 1)} aria-label={`Przesuń ${column.label} w prawo`}>→</button>
+                <span className="min-w-0 flex-1 whitespace-normal break-words leading-5">{t(column.label)}</span>
+                <button type="button" className="shrink-0 rounded border px-1.5 disabled:opacity-30" disabled={index === 0} onClick={() => moveColumn(column.key, -1)} aria-label={`Przesuń ${t(column.label)} w lewo`}>←</button>
+                <button type="button" className="shrink-0 rounded border px-1.5 disabled:opacity-30" disabled={index === orderedColumns.length - 1} onClick={() => moveColumn(column.key, 1)} aria-label={`Przesuń ${t(column.label)} w prawo`}>→</button>
               </div>
             ))}
           </div>}
@@ -234,7 +236,7 @@ export default function DataGrid<T>({
             </form>
             {Object.keys(profiles).length > 0 && <div className="mt-3 border-t pt-2">{Object.keys(profiles).sort().map((name) => <div key={name} className="flex items-center justify-between gap-2 py-1 text-sm"><button className="min-w-0 flex-1 truncate text-left text-blue-700 hover:underline" onClick={() => applyProfile(name)}>{name}</button><button className="text-red-600 hover:underline" onClick={() => deleteProfile(name)}>Usuń</button></div>)}</div>}
           </div>}
-          <IconButton label={`Eksport CSV${selectedCount ? ` — ${selectedCount} zaznaczonych` : ""}`} disabled={!rows.length} onClick={exportCsv}><Download size={18} aria-hidden="true" /></IconButton>
+          <IconButton label={`Eksport CSV${selectedCount ? ` - ${selectedCount} zaznaczonych` : ""}`} disabled={!rows.length} onClick={exportCsv}><Download size={18} aria-hidden="true" /></IconButton>
         </div>
       </div>
       <div className="border-b border-slate-200 bg-slate-50 px-3 pb-2 sm:hidden">
@@ -257,7 +259,7 @@ export default function DataGrid<T>({
                 className={`relative border-b-2 px-3 py-3 font-semibold ${view.filters[column.key]?.length ? "border-blue-400 bg-blue-50 text-blue-900" : "border-slate-200 bg-slate-100"}`}
                 style={{ width: columnWidths[index], textAlign: column.align }}
                 onContextMenu={column.filterable ? (event) => { event.preventDefault(); openColumnFilter(column, event.clientX, event.clientY); } : undefined}
-                title={column.filterable ? `Kliknij ikonę filtra lub użyj PPM, aby filtrować kolumnę ${column.label}` : undefined}
+                title={column.filterable ? `Kliknij ikonę filtra lub użyj PPM, aby filtrować kolumnę ${t(column.label)}` : undefined}
               >
                 <div className="flex items-center gap-1">
                   <button type="button" className={column.sortable ? "flex min-w-0 flex-1 items-center gap-1 text-left hover:text-blue-700" : "min-w-0 flex-1 text-left"} onClick={() => toggleSort(column)}>{column.label}{column.sortable && <span aria-hidden="true">{view.sortKey === column.key ? (view.direction === "asc" ? "▲" : "▼") : "↕"}</span>}</button>
@@ -279,7 +281,7 @@ export default function DataGrid<T>({
             {hasActions && <th className="border-b-2 border-l border-slate-200 px-3 py-3 text-right font-semibold" style={{ width: actionWidth, minWidth: actionWidth, maxWidth: actionWidth, position: stickyActions ? "sticky" : undefined, right: stickyActions ? 0 : undefined, zIndex: 20, isolation: "isolate", backgroundColor: "#f1f5f9", boxShadow: stickyActions ? "-8px 0 14px -12px rgba(15,23,42,.9)" : undefined }}>Akcje</th>}
           </tr></thead>
           <tbody>
-            {!loading && pageRows.length === 0 && <tr><td colSpan={visibleColumns.length + (hasActions ? 1 : 0) + (selectable ? 1 : 0) + (rowDrag ? 1 : 0)} className="px-4 py-12 text-center text-slate-500">{emptyMessage}</td></tr>}
+            {!loading && pageRows.length === 0 && <tr><td colSpan={visibleColumns.length + (hasActions ? 1 : 0) + (selectable ? 1 : 0) + (rowDrag ? 1 : 0)} className="px-4 py-12 text-center text-slate-500">{t(emptyMessage)}</td></tr>}
             {pageRows.map((row, index) => {
               const id = String(getRowId(row)); const rowSelectable = isRowSelectable(row); const selected = rowSelectable && selectedIds.has(id); const background = selected ? "bg-blue-50" : index % 2 ? "bg-white" : "bg-slate-50";
               const isInlineEditing = inlineEditId === id && inlineDraft != null;
@@ -309,7 +311,7 @@ export default function DataGrid<T>({
                     onChange={setInlineDraft}
                     onCancel={cancelInlineEdit}
                     onSave={() => void saveInlineEdit()}
-                  /> : column.render ? column.render(row) : String(column.value(row) ?? "—")}
+                  /> : column.render ? column.render(row) : String(column.value(row) ?? "-")}
                 </td>;})}
                 {hasActions && <td className={`border-b border-l border-slate-200 px-3 ${rowPadding} text-right`} style={{ width: actionWidth, minWidth: actionWidth, maxWidth: actionWidth, position: stickyActions ? "sticky" : undefined, right: stickyActions ? 0 : undefined, zIndex: 10, isolation: "isolate", overflow: "hidden", backgroundColor: selected ? "#eff6ff" : index % 2 ? "#ffffff" : "#f8fafc", boxShadow: stickyActions ? "-8px 0 14px -12px rgba(15,23,42,.9)" : undefined }}><div className="flex flex-nowrap items-center justify-end gap-1">{isInlineEditing ? <><IconButton label="Zapisz zmiany w wierszu" tone="primary" disabled={inlineSaving} onClick={() => void saveInlineEdit()}><Check size={18} aria-hidden="true" /></IconButton><IconButton label="Anuluj edycję wiersza" disabled={inlineSaving} onClick={cancelInlineEdit}><X size={18} aria-hidden="true" /></IconButton></> : actions?.(row)}</div></td>}
               </tr>;
@@ -341,7 +343,7 @@ export default function DataGrid<T>({
             <button type="button" aria-label="Zamknij filtr kolumny" className="rounded p-1 text-slate-500 hover:bg-slate-200" onClick={() => setColumnFilterMenu(null)}><X size={16} aria-hidden="true" /></button>
           </div>
           <div className="max-h-80 overflow-y-auto p-2">{renderFilterChoices(column, true)}</div>
-          {selectedCount > 0 && <div className="border-t border-slate-100 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800">Aktywny filtr: {selectedCount} {selectedCount === 1 ? "wartość" : "wartości"}</div>}
+          {selectedCount > 0 && <div className="border-t border-slate-100 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800">{t("Aktywny filtr:")} {selectedCount} {t(selectedCount === 1 ? "wartość" : "wartości")}</div>}
         </div>;
       })()}
       {showFooter && <footer className="flex flex-wrap items-center justify-between gap-3 rounded-b-xl border-t border-slate-200 bg-slate-50 px-3 py-2 text-sm">

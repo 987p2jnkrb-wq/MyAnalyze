@@ -11,6 +11,7 @@ import { isActualTransaction, isManualPlanEntry } from "./transactionSemantics";
 import { parseFinancialDate, recurringOccurrences } from "./financialRangeAggregation";
 import { formatMonthLabel } from "./monthViewModel";
 import { signedTransactionAmount, transactionKindLabel } from "./transactionPresentation";
+import { useUiText } from "../../i18n";
 
 export type MonthBreakdownKind = "income" | "expense";
 export type MonthBreakdownMode = "actual" | "planned" | "outstanding";
@@ -92,7 +93,7 @@ const columns: DataGridColumn<MonthBreakdownRow>[] = [
   { key: "name", label: "Nazwa", value: (row) => row.name, sortable: true, filterable: true, width: 300 },
   { key: "category", label: "Etykieta", value: (row) => row.category, sortable: true, filterable: true, width: 190 },
   { key: "source", label: "Źródło", value: (row) => row.source === "actual" ? "Wykonanie" : row.source === "recurring" ? "Stały" : "Jednorazowy", sortable: true, filterable: true, width: 135 },
-  { key: "certainty", label: "Pewność", value: (row) => row.certainty ? incomeCertaintyLabel(row.certainty) : "—", sortable: true, filterable: true, width: 135, defaultVisible: false },
+  { key: "certainty", label: "Pewność", value: (row) => row.certainty ? incomeCertaintyLabel(row.certainty) : "-", sortable: true, filterable: true, width: 135, defaultVisible: false },
   { key: "amount", label: "Kwota", value: (row) => row.amount, render: (row) => formatCurrency(row.amount), sortable: true, width: 145, align: "right" },
 ];
 
@@ -113,10 +114,11 @@ export default function MonthTransactionsModal({
   titleOverride?: string;
   onClose: () => void;
 }) {
-  const title = titleOverride ?? `${mode === "actual" ? "Wykonane" : mode === "outstanding" ? "Nierozliczone" : "Planowane"} ${kind === "all" ? "transakcje" : kind === "income" ? "przychody" : "wydatki"} — ${formatMonthLabel(month)}`;
+  const t = useUiText();
+  const title = titleOverride ?? `${t(mode === "actual" ? "Wykonane" : mode === "outstanding" ? "Nierozliczone" : "Planowane")} ${t(kind === "all" ? "transakcje" : kind === "income" ? "przychody" : "wydatki")} - ${formatMonthLabel(month)}`;
   const total = rows.reduce((sum, row) => sum + (kind === "all" && row.kind ? signedTransactionAmount(row.kind, row.amount) : Number(row.amount || 0)), 0);
   const displayColumns: DataGridColumn<MonthBreakdownRow>[] = kind === "all" ? [
-    { key: "kind", label: "Kierunek", value: (row) => row.kind ? transactionKindLabel(row.kind) : "—", filterable: true, sortable: true, width: 130 },
+    { key: "kind", label: "Kierunek", value: (row) => row.kind ? transactionKindLabel(row.kind) : "-", filterable: true, sortable: true, width: 130 },
     ...columns.map((column) => column.key === "amount" ? { ...column, exportValue: (row: MonthBreakdownRow) => signedTransactionAmount(row.kind ?? "income", row.amount), render: (row: MonthBreakdownRow) => <span className={row.kind === "expense" ? "text-rose-700" : "text-emerald-700"}>{formatCurrency(signedTransactionAmount(row.kind ?? "income", row.amount))}</span> } : column),
   ] : columns;
   return <Modal open={open} onClose={onClose} title={title} size="xl">

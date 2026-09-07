@@ -41,7 +41,7 @@ it("recovers an unknown CSV layout through column mapping without saving transac
   const view = render(<StatementImportModal account={account} onClose={jest.fn()} onImported={async () => undefined} onSuccess={jest.fn()} />);
   fireEvent.change(view.container.querySelector('input[type="file"]')!, { target: { files: [new File(["csv"], "other.csv")] } });
   await screen.findByText(/Nie rozpoznano kolumn daty i kwoty/);
-  fireEvent.click(screen.getByText("Dopasuj kolumny CSV — inny układ lub błędny podgląd"));
+  fireEvent.click(screen.getByText("Dopasuj kolumny CSV - inny układ lub błędny podgląd"));
   fireEvent.change(screen.getByLabelText(/Data operacji/), { target: { value: "0" } });
   fireEvent.change(screen.getByLabelText(/Kwota ze znakiem/), { target: { value: "1" } });
   fireEvent.change(screen.getByLabelText(/Opis \/ nazwa/), { target: { value: "2" } });

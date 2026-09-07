@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import MonthViewGrid from "./MonthViewGrid";
+import { AppPresentationProvider } from "../../i18n";
 
 jest.mock("../../context/useIncomeContext", () => ({
   useIncomeContext: () => ({ incomes: [{ id: 1, name: "Premia", amount: 500, category: "Premia", addedAt: "2026-08-05", zrealizowany: false }] }),
@@ -45,6 +46,16 @@ describe("MonthViewGrid details", () => {
 
     expect(screen.getByText("Jedzenie")).not.toBeNull();
     expect(screen.getByText("Premia")).not.toBeNull();
+  });
+
+  it("renders the month picker in the selected application language", () => {
+    localStorage.setItem("myanalyze.language", "en");
+    render(<AppPresentationProvider><MonthViewGrid /></AppPresentationProvider>);
+
+    const monthPicker = screen.getByRole("combobox", { name: "Month" });
+    expect(within(monthPicker).getByRole("option", { name: "August" })).not.toBeNull();
+    expect(within(monthPicker).getByRole("option", { name: "September" })).not.toBeNull();
+    expect(screen.getByRole("spinbutton", { name: "Year" })).not.toBeNull();
   });
 
   it("opens both executed directions for one label without plans or transfers", () => {

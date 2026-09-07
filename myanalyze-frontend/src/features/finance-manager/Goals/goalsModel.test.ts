@@ -1,6 +1,6 @@
 import {
-  allocateNewFunds, applyGoalAccountBalances, buildBufferStatus, buildGoalProjection, buildGoalRecommendations, buildGoalsAiPrompt, buildLiquidityBreakdown,
-  DEFAULT_GOAL_SETTINGS, validateFinancialGoal, validateGoalSettings, buildProposedGoals, proposedGoalAlreadyExists, type FinancialGoal, type GoalDebt,
+  allocateNewFunds, allocateNewFundsWithStrategy, applyGoalAccountBalances, buildBufferStatus, buildGoalProjection, buildGoalRecommendations, buildGoalsAiPrompt, buildLiquidityBreakdown,
+  buildSuggestedNewFundsStrategy, DEFAULT_GOAL_SETTINGS, normalizeNewFundsStrategy, validateFinancialGoal, validateGoalSettings, validateNewFundsStrategy, buildProposedGoals, proposedGoalAlreadyExists, type FinancialGoal, type GoalDebt, type NewFundsStrategy,
 } from "./goalsModel";
 
 const now = new Date(2026, 7, 20, 12);
@@ -204,6 +204,46 @@ describe("goals model", () => {
     expect(projection.safeSurplus).toBe(950);
     const allocation = allocateNewFunds(2000, 1000, settings, [], [], projection.dailyLivingReserve);
     expect(allocation[0]).toEqual(expect.objectContaining({ kind: "living", amount: 1050 }));
+  });
+
+  it("splits a custom 50/20/30 strategy and applies the current buffer allocation as a multiplier", () => {
+    const strategy: NewFundsStrategy = { version: 1, items: [
+      { id: "debt", kind: "debt", targetId: 7, share: 50 },
+      { id: "account", kind: "account", targetId: 1, share: 20 },
+      { id: "buffer", kind: "buffer", targetId: null, share: 30 },
+    ] };
+    const debts: GoalDebt[] = [{ id: 7, name: "Dług X", type: "Kredyt", debt: 5000, installment: 100, apr: 12, interest: 10 }];
+    const settings = { ...DEFAULT_GOAL_SETTINGS, allocations: [100, 70, 50] as [number, number, number] };
+    const result = allocateNewFundsWithStrategy(1000, 1500, settings, [], debts, [account(1, "konto", 1500)], strategy);
+    expect(result.find((line) => line.kind === "debt")?.amount).toBe(500);
+    expect(result.find((line) => line.kind === "account")?.amount).toBe(200);
+    expect(result.find((line) => line.kind === "buffer")).toEqual(expect.objectContaining({ amount: 210, strategyShare: 30, effectiveShare: 21 }));
+    expect(result.find((line) => line.kind === "unassigned")?.amount).toBe(90);
+    expect(result.reduce((sum, line) => sum + line.amount, 0)).toBe(1000);
+  });
+
+  it("keeps custom strategy simple: validates 100%, survives JSON storage and returns capped surplus to decision", () => {
+    const strategy: NewFundsStrategy = { version: 1, items: [
+      { id: "goal", kind: "goal", targetId: 1, share: 60 },
+      { id: "account", kind: "account", targetId: 1, share: 40 },
+    ] };
+    const goals = [goal({ targetAmount: 100, allocatedAmount: 50 })];
+    const accounts = [account(1, "konto", 5000)];
+    expect(validateNewFundsStrategy(strategy, goals, [], accounts)).toBeNull();
+    expect(normalizeNewFundsStrategy(JSON.stringify(strategy))).toEqual(strategy);
+    expect(validateNewFundsStrategy({ ...strategy, items: strategy.items.map((item) => ({ ...item, share: item.share - 10 })) }, goals, [], accounts)).toContain("100%");
+    const result = allocateNewFundsWithStrategy(1000, 5000, DEFAULT_GOAL_SETTINGS, goals, [], accounts, strategy);
+    expect(result.find((line) => line.kind === "goal")?.amount).toBe(50);
+    expect(result.find((line) => line.kind === "account")?.amount).toBe(400);
+    expect(result.find((line) => line.kind === "unassigned")?.amount).toBe(550);
+    expect(result.reduce((sum, line) => sum + line.amount, 0)).toBe(1000);
+  });
+
+  it("builds a suggested strategy whose editable top-level shares add up to 100%", () => {
+    const debts: GoalDebt[] = [{ id: 4, name: "Karta", type: "Karta kredytowa", debt: 900, installment: 0, apr: 18, interest: 16 }];
+    const suggested = buildSuggestedNewFundsStrategy(1500, DEFAULT_GOAL_SETTINGS, [goal()], debts, [account(1, "konto", 1500)]);
+    expect(suggested.items.reduce((sum, item) => sum + item.share, 0)).toBe(100);
+    expect(suggested.items).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "debt" }), expect.objectContaining({ kind: "buffer" })]));
   });
 
   it("creates an anonymous GPT snapshot while preserving goal names", () => {

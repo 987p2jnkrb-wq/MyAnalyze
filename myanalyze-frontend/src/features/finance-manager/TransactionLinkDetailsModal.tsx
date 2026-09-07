@@ -13,7 +13,7 @@ function TransactionSide({ title, kind, row, accountNames }: { title: string; ki
   const amount = kind === "income" ? Math.abs(Number(row.amount)) : -Math.abs(Number(row.amount));
   return <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</span><ModuleBadge tone={kind === "income" ? "success" : "danger"} size="sm">{kind === "income" ? "Przychód" : "Wydatek"}</ModuleBadge></div>
-    <strong className="block break-words text-base text-slate-900">{row.name}</strong>
+    <strong data-i18n-ignore="true" className="block break-words text-base text-slate-900">{row.name}</strong>
     <div className="mt-2 grid gap-1 text-sm text-slate-600"><span><strong className="text-slate-700">Kwota:</strong> {formatCurrency(amount)}</span><span><strong className="text-slate-700">Data:</strong> {formatDate(row.addedAt)}</span><span><strong className="text-slate-700">Konto:</strong> {account}</span><span><strong className="text-slate-700">Etykieta:</strong> {row.customTypeName ?? "Bez etykiety"}</span></div>
   </div>;
 }

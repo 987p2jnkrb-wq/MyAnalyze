@@ -202,7 +202,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ loan, onSuccess, onCancel }) => {
       </div>
       {!loan && installmentProgress && <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
         <div className="font-semibold">Z harmonogramu: minęło {installmentProgress.elapsed}, pozostało {installmentProgress.remaining} rat.</div>
-        <div className="mt-0.5">Najbliższa rata: {installmentProgress.nextDueDate ? formatDate(installmentProgress.nextDueDate) : "brak — harmonogram jest zakończony"}. Planowany koniec: {formatDate(draft.data_do)}.</div>
+        <div className="mt-0.5">Najbliższa rata: {installmentProgress.nextDueDate ? formatDate(installmentProgress.nextDueDate) : "brak - harmonogram jest zakończony"}. Planowany koniec: {formatDate(draft.data_do)}.</div>
         {remainingManuallyEdited && <button type="button" className="mt-1 font-semibold text-blue-700 hover:underline" onClick={() => { setRemainingManuallyEdited(false); updateRemainingInstallments(String(installmentProgress.remaining), false); }}>Przywróć podpowiedź: {installmentProgress.remaining}</button>}
       </div>}
       {loan && installmentProgress && installmentProgress.elapsed > 0 && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -213,7 +213,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ loan, onSuccess, onCancel }) => {
       </div>}
       <p className="mt-2 text-sm text-slate-500">Data zakończenia jest liczona od najbliższej niezapłaconej raty. Liczbę pozostałych rat możesz poprawić.</p>
       {usesCalculatedDebt(draft.typ) && <p className="mt-1 text-sm text-slate-500">Podpowiadamy aktualne zadłużenie jako pozostała liczba rat × kwota raty. Kwotę możesz poprawić ręcznie.</p>}
-      <p className="mt-1 text-sm text-slate-500">Kwotę kapitału podpowiadamy jako pozostała liczba rat × kwota raty. To wartość orientacyjna, ponieważ rata może zawierać odsetki — możesz ją poprawić ręcznie.</p>
+      <p className="mt-1 text-sm text-slate-500">Kwotę kapitału podpowiadamy jako pozostała liczba rat × kwota raty. To wartość orientacyjna, ponieważ rata może zawierać odsetki - możesz ją poprawić ręcznie.</p>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <RecurringExpenseLinkFields enabled={includeRecurringExpense} choice={recurringExpenseChoice} expenses={recurringExpenses} onEnabledChange={setIncludeRecurringExpense} onChoiceChange={setRecurringExpenseChoice} />
       </div>

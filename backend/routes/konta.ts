@@ -13,6 +13,7 @@ import { canLinkToCreditProduct, isCreditAccountType, isSupportedAccountType } f
 import { AccountBalanceError, applyAccountBalanceDelta, setAccountBalanceAbsolute } from '../services/accountBalance';
 import { analyzeImportMatches } from '../services/statementImportMatching';
 import { linkImportedTransfer, setImportedTransactionAnalysis, StatementTransferError, unlinkImportedTransfer, type ImportedTransactionKind } from '../services/statementTransfer';
+import { extractStatementPdf } from '../services/statementPdf';
 
 const router = express.Router();
 
@@ -26,6 +27,22 @@ function technicalProvider(value: unknown): string | null {
 function importedTransactionKind(value: unknown): ImportedTransactionKind | null {
   return value === 'income' ? 'income' : value === 'expense' ? 'expense' : null;
 }
+
+router.post('/:id/extract-statement-pdf', express.raw({ type: ['application/pdf', 'application/octet-stream'], limit: '10mb' }), async (req, res) => {
+  const accountId = Number(req.params.id);
+  if (!Number.isInteger(accountId) || accountId <= 0) return res.status(400).json({ error: 'Nieprawidłowe konto.' });
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Nie przesłano pliku PDF.' });
+  try {
+    const db = await dbPromise;
+    if (!await db.get('SELECT id FROM konta WHERE id = ?', accountId)) return res.status(404).json({ error: 'Nie znaleziono konta.' });
+    res.json(await extractStatementPdf(req.body));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (/PDF|warstwy tekstowej/i.test(message)) return res.status(400).json({ error: message });
+    console.error('POST /api/konta/:id/extract-statement-pdf error:', error);
+    res.status(500).json({ error: 'Nie udało się odczytać dokumentu PDF.' });
+  }
+});
 
 router.get('/import-identifiers', async (req, res) => {
   const provider = technicalProvider(req.query.provider);
@@ -335,7 +352,10 @@ router.post('/:id/import-transactions', async (req, res) => {
     const db = await dbPromise;
     const account = await db.get<{ id: number; nazwa: string; typ_depozytu: string }>('SELECT id, nazwa, typ_depozytu FROM konta WHERE id = ?', accountId);
     if (!account) return res.status(404).json({ error: 'Nie znaleziono konta.' });
-    const result = await importStatementTransactions(db, accountId, account.nazwa, req.body?.transactions, statementSourceForAccountType(account.typ_depozytu));
+    const defaultSource = statementSourceForAccountType(account.typ_depozytu);
+    const requestedSource = typeof req.body?.source === 'string' ? req.body.source.trim().slice(0, 80) : '';
+    const source = /^(?:CSV|PDF)\b/i.test(requestedSource) ? requestedSource : defaultSource;
+    const result = await importStatementTransactions(db, accountId, account.nazwa, req.body?.transactions, source);
     res.json(result);
   } catch (err) {
     if (err instanceof StatementImportValidationError) {

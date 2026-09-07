@@ -28,7 +28,7 @@ describe("DataGrid inline editing", () => {
     expect(screen.queryByText("Rekordów na stronę:")).toBeNull();
     expect(screen.getByRole("combobox", { name: "Liczba rekordów na stronę" })).not.toBeNull();
     fireEvent.click(screen.getByTitle("Kliknij, aby edytować: Kwota"));
-    const amountInput = screen.getByRole("textbox", { name: "Kwota — edycja wiersza 1" });
+    const amountInput = screen.getByRole("textbox", { name: "Kwota - edycja wiersza 1" });
     fireEvent.change(amountInput, { target: { value: "25,5" } });
     fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany w wierszu" }));
 
@@ -40,7 +40,7 @@ describe("DataGrid inline editing", () => {
     render(<div><DataGrid gridId="outside-save-test" rows={[{ id: 1, name: "Konto", amount: 10 }]} columns={columns} getRowId={(row) => row.id} onInlineSave={onInlineSave} /><button type="button">Tło strony</button></div>);
 
     fireEvent.click(screen.getByTitle("Kliknij, aby edytować: Kwota"));
-    fireEvent.change(screen.getByRole("textbox", { name: "Kwota — edycja wiersza 1" }), { target: { value: "42.5" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Kwota - edycja wiersza 1" }), { target: { value: "42.5" } });
     fireEvent.pointerDown(screen.getByRole("button", { name: "Tło strony" }));
 
     await waitFor(() => expect(onInlineSave).toHaveBeenCalledWith({ id: 1, name: "Konto", amount: 42.5 }));
@@ -53,7 +53,7 @@ describe("DataGrid inline editing", () => {
     fireEvent.click(screen.getByTitle("Kliknij, aby edytować: Nazwa"));
     fireEvent.pointerDown(screen.getByRole("button", { name: "Tło strony" }));
 
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Nazwa — edycja wiersza 1" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Nazwa - edycja wiersza 1" })).toBeNull());
     expect(onInlineSave).not.toHaveBeenCalled();
   });
 
@@ -62,7 +62,7 @@ describe("DataGrid inline editing", () => {
     render(<DataGrid gridId="inside-grid-save-test" rows={[{ id: 1, name: "Konto", amount: 10 }]} columns={columns} getRowId={(row) => row.id} onInlineSave={onInlineSave} />);
 
     fireEvent.click(screen.getByTitle("Kliknij, aby edytować: Kwota"));
-    fireEvent.change(screen.getByRole("textbox", { name: "Kwota — edycja wiersza 1" }), { target: { value: "33.25" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Kwota - edycja wiersza 1" }), { target: { value: "33.25" } });
     fireEvent.pointerDown(screen.getByRole("button", { name: "Kolumny" }));
 
     await waitFor(() => expect(onInlineSave).toHaveBeenCalledWith({ id: 1, name: "Konto", amount: 33.25 }));
@@ -99,7 +99,7 @@ describe("DataGrid inline editing", () => {
 
     expect(screen.getByText("Plan")).not.toBeNull();
     expect(screen.queryByText("Historia")).toBeNull();
-    expect(screen.getByRole("button", { name: "Filtry — aktywne: 1" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Filtry - aktywne: 1" })).not.toBeNull();
   });
 
   it("keeps a configured default filter available when no row currently has that value", () => {
@@ -113,7 +113,7 @@ describe("DataGrid inline editing", () => {
 
     expect(screen.getByText("Brak danych do wyświetlenia.")).not.toBeNull();
     expect(screen.queryByText("Historia")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Filtry — aktywne: 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filtry - aktywne: 1" }));
     expect(screen.getByRole("button", { name: "Zaplanowane" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "Zrealizowane" })).not.toBeNull();
   });

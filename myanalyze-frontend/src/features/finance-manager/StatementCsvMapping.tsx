@@ -29,7 +29,7 @@ export default function StatementCsvMapping({ text, currency, busy, onApply }: {
     && !(mapping.fee >= 0 && [mapping.amount, mapping.debit, mapping.credit].includes(mapping.fee));
   const inputClass = "w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm";
   return <details className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
-    <summary className="cursor-pointer font-semibold text-blue-900">Dopasuj kolumny CSV — inny układ lub błędny podgląd</summary>
+    <summary className="cursor-pointer font-semibold text-blue-900">Dopasuj kolumny CSV - inny układ lub błędny podgląd</summary>
     <p className="mt-2 text-sm text-slate-600">Wskaż znaczenie kolumn. Wymagana jest data oraz kwota ze znakiem albo osobne wpływy/wydatki. Pozostałe pola są opcjonalne. Ustawienia dotyczą tego pliku.</p>
     <fieldset disabled={busy} className="mt-3 space-y-3 disabled:opacity-60">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -41,7 +41,7 @@ export default function StatementCsvMapping({ text, currency, busy, onApply }: {
         {fields.map(([field, label]) => <label key={field} className="min-w-0 text-sm text-slate-700">{label}<select className={inputClass} value={mapping[field]} onChange={event => {
           const value = Number(event.target.value);
           setOverrides(current => ({ ...current, [field]: value, ...(value >= 0 && field === "amount" ? { debit: -1, credit: -1 } : {}), ...(value >= 0 && (field === "debit" || field === "credit") ? { amount: -1 } : {}) }));
-        }}><option value={-1}>{field === "currency" ? `Brak kolumny — ${currency}` : "Nie używaj"}</option>{headers.map((header, index) => <option key={index} value={index}>{index + 1}. {header || "Bez nazwy"}</option>)}</select><span className="mt-1 block break-words text-xs text-slate-500">Przykład: {mapping[field] < 0 ? "—" : parsed.rows[headerRow + 1]?.[mapping[field]] || "(puste)"}</span></label>)}
+        }}><option value={-1}>{field === "currency" ? `Brak kolumny - ${currency}` : "Nie używaj"}</option>{headers.map((header, index) => <option key={index} value={index}>{index + 1}. {header || "Bez nazwy"}</option>)}</select><span className="mt-1 block break-words text-xs text-slate-500">Przykład: {mapping[field] < 0 ? "-" : parsed.rows[headerRow + 1]?.[mapping[field]] || "(puste)"}</span></label>)}
       </div>
       <p className="text-xs text-slate-600">Kwoty: 123,45 lub 123.45. Daty: RRRR-MM-DD lub DD.MM.RRRR. Brak opisu nie blokuje importu. Nie przypisuj salda jako kwoty. Prowizję wybierz tylko, jeśli nie jest już zawarta w kwocie. ID musi oznaczać konkretną operację, nie numer konta.</p>
       {!ready && <p className="text-sm text-amber-800">Wybierz datę i kwotę. Wpływy, wydatki i prowizja muszą korzystać z różnych kolumn.</p>}

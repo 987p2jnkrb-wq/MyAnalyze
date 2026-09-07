@@ -13,6 +13,8 @@ import ConfirmModal from "../../components/ConfirmModal";
 import { transactionTypeLabel, type TransactionType } from "../../types/transactionType";
 import { incomeCertaintyLabel, normalizeIncomeCertainty } from "../../types/incomeCertainty";
 import { formatCurrency, formatPercentage } from "../../utils/formatters";
+import { getAppLocale } from "../../utils/appSettings";
+import { translateUiText } from "../../i18n";
 
 const actionTranslations: Record<string, string> = {
   TRANSFER_OUT: "Przelew wychodzący", TRANSFER_IN: "Przelew przychodzący",
@@ -81,7 +83,7 @@ const goalValueLabels: Record<string, string> = {
 };
 
 function formatEntityType(value: string): string {
-  return entityTranslations[value?.toLowerCase()] ?? (value ? value.charAt(0).toUpperCase() + value.slice(1) : "—");
+  return entityTranslations[value?.toLowerCase()] ?? (value ? value.charAt(0).toUpperCase() + value.slice(1) : "-");
 }
 
 function actionLabel(log: AppActivityLog): string {
@@ -106,7 +108,7 @@ export function parseMetadataDate(log: AppActivityLog): string {
 
 function formatLogDate(log: AppActivityLog): string {
   const date = new Date(parseMetadataDate(log));
-  return Number.isNaN(date.getTime()) ? String(log.timestamp ?? "—") : date.toLocaleString("pl-PL", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return Number.isNaN(date.getTime()) ? String(log.timestamp ?? "-") : date.toLocaleString(getAppLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 interface ImportLogDetail {
@@ -149,40 +151,73 @@ function normalizedLogRecord(data: unknown): Record<string, unknown> | null {
 }
 
 function formatLogValue(key: string, value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
   if (logMoneyFields.has(key)) return formatCurrency(value);
   if (logPercentFields.has(key)) {
     const number = Number(value);
     return Number.isFinite(number) ? formatPercentage(number) : String(value);
   }
-  if (logBooleanFields.has(key)) return [true, 1, "1", "true", "tak"].includes(value as never) ? "Tak" : "Nie";
-  if (key === "typ_depozytu") return accountTypeLabels[String(value).trim().toLowerCase()] ?? String(value);
-  if (key === "transaction_type" || key === "typ_transakcji") return transactionTypeLabel(value as TransactionType);
-  if (key === "pewnosc") return incomeCertaintyLabel(normalizeIncomeCertainty(value));
-  if (["typ", "status", "priorytet"].includes(key)) return goalValueLabels[String(value)] ?? String(value);
+  if (logBooleanFields.has(key)) return translateUiText([true, 1, "1", "true", "tak"].includes(value as never) ? "Tak" : "Nie");
+  if (key === "typ_depozytu") return translateUiText(accountTypeLabels[String(value).trim().toLowerCase()] ?? String(value));
+  if (key === "transaction_type" || key === "typ_transakcji") return translateUiText(transactionTypeLabel(value as TransactionType));
+  if (key === "pewnosc") return translateUiText(incomeCertaintyLabel(normalizeIncomeCertainty(value)));
+  if (["typ", "status", "priorytet"].includes(key)) return translateUiText(goalValueLabels[String(value)] ?? String(value));
   if (key.endsWith("_id") && Number.isFinite(Number(value))) return `#${value}`;
   return String(value);
 }
 
 function renderLogCell(data: unknown): string {
-  if (data == null) return "—";
+  if (data == null) return "-";
   const record = normalizedLogRecord(data);
-  if (!record) return typeof data === "string" ? data || "—" : String(data);
+  if (!record) return typeof data === "string" ? data || "-" : String(data);
   const preferred = Object.keys(logFieldLabels).filter((key) => record[key] != null);
   const ignored = new Set(["id", "success", "paymentsCount", "created_at", "updated_at"]);
   const keys = preferred.length ? preferred : Object.keys(record).filter((key) => !ignored.has(key) && record[key] != null).slice(0, 5);
-  return keys.length ? keys.slice(0, 8).map((key) => `${logFieldLabels[key] ?? key.replace(/_/g, " ")}: ${formatLogValue(key, record[key])}`).join(" · ") : "—";
+  return keys.length ? keys.slice(0, 8).map((key) => `${translateUiText(logFieldLabels[key] ?? key.replace(/_/g, " "))}: ${formatLogValue(key, record[key])}`).join(" · ") : "-";
+}
+
+const commentFieldTranslations: Record<string, string> = {
+  "nazwę": "name", "saldo dostępne": "available balance", "saldo właściwe": "actual balance",
+  "kwotę": "amount", "kwotę kapitału": "principal amount", "kwotę całkowitą": "total amount",
+  "kwotę raty": "installment amount", "kategorię": "category", "status": "status", "opis": "description",
+  "zadłużenie": "debt", "ratę miesięczną": "monthly installment", "wolny limit": "available limit", "limit": "limit",
+  "nazwę produktu": "product name", "typ": "type", "typ konta": "account type", "typ transakcji": "transaction type",
+  "liczbę rat": "number of installments", "datę rozpoczęcia": "start date", "datę zakończenia": "end date",
+  "dzień spłaty": "repayment day", "dzień płatności": "payment day", "konto spłacające": "repayment account",
+  "nazwę konta spłacającego": "repayment account name", "powiązaną kartę": "linked card",
+  "nazwę powiązanej karty": "linked card name", "status realizacji": "completion status", "widoczność": "visibility",
+  "kwotę docelową": "target amount", "kwotę przypisaną": "allocated amount", "termin": "deadline",
+  "uwzględnianie salda depozytu": "including account balance", "budżet bieżący / dzień": "current budget / day",
+  "priorytet": "priority", "notatkę": "note", "finansową podłogę": "financial floor", "datę": "date",
+  "kapitał": "principal", "konto": "account", "powiązany wydatek stały": "linked recurring expense",
+  "dzień rozpoczęcia okresu": "period start day", "pewność wpływu": "income certainty",
+  "strategię podziału nowych środków": "new-funds allocation strategy",
+};
+
+function translateLogCommentStructure(comment: string): string {
+  if (translateUiText("Nazwa") === "Nazwa") return comment;
+  const field = (value: string) => commentFieldTranslations[value.trim().toLocaleLowerCase("pl-PL")] ?? value.trim();
+  return comment
+    .replace(/^Dodano rekord( „[^”]*”)?\.$/, (_match, name = "") => `Added record${name}.`)
+    .replace(/^Usunięto rekord( „[^”]*”)?\.$/, (_match, name = "") => `Deleted record${name}.`)
+    .replace(/^Zaktualizowano rekord w module (.+)\.$/, (_match, moduleName: string) => `Updated record in ${translateUiText(moduleName)}.`)
+    .replace(/Zmieniono ([^:;]+):/g, (_match, label: string) => `Changed ${field(label)}:`)
+    .replace(/Zwiększono ([^;]+?) o ([^(;]+) \(z ([^)]+?) do ([^)]+)\)/g, (_match, label: string, amount: string, before: string, after: string) => `Increased ${field(label)} by ${amount.trim()} (from ${before} to ${after})`)
+    .replace(/Zmniejszono ([^;]+?) o ([^(;]+) \(z ([^)]+?) do ([^)]+)\)/g, (_match, label: string, amount: string, before: string, after: string) => `Decreased ${field(label)} by ${amount.trim()} (from ${before} to ${after})`)
+    .replace(/^Zaimportowano wyciąg (.+): (\d+) wydatków i (\d+) przychodów; pominięto (\d+) duplikatów\.$/, (_match, source: string, expenses: string, incomes: string, duplicates: string) => `Imported statement ${source}: ${expenses} expenses and ${incomes} income transactions; skipped ${duplicates} duplicates.`)
+    .replace(/^Przelew wychodzący na konto (.+) ([\d.,]+) został zrealizowany$/, (_match, account: string, amount: string) => `Outgoing transfer to account ${account} for ${amount} was completed.`)
+    .replace(/^Przelew przychodzący ([\d.,]+) z konta (.+) został zaksięgowany$/, (_match, amount: string, account: string) => `Incoming transfer of ${amount} from account ${account} was recorded.`);
 }
 
 function renderLogComment(log: AppActivityLog): string {
   const comment = typeof log.comment === "string" ? log.comment : "";
-  if (!log.old_data && /^(PUT|PATCH)\s/.test(comment)) return "Starszy wpis — stan przed zmianą nie był jeszcze rejestrowany.";
+  if (!log.old_data && /^(PUT|PATCH)\s/.test(comment)) return translateUiText("Starszy wpis - stan przed zmianą nie był jeszcze rejestrowany.");
   if (comment === "Dodano rekord." && log.entity_type === "loans") {
     const details = renderLogCell(log.new_data);
     const name = /(?:Nazwa|Produkt): ([^·]+)/.exec(details)?.[1]?.trim();
-    return name ? `Dodano rekord „${name}”.` : "Dodano kredyt.";
+    return name ? translateLogCommentStructure(`Dodano rekord „${name}”.`) : translateUiText("Dodano kredyt.");
   }
-  if (!comment) return "—";
+  if (!comment) return "-";
   let translated = comment
     .replace(/financial[-_]goal[-_]settings/gi, "Ustawienia planowania")
     .replace(/financial[-_]period[-_]snapshots/gi, "Historia finansowa")
@@ -204,7 +239,7 @@ function renderLogComment(log: AppActivityLog): string {
   const repaymentId = after?.repayment_account_id ?? after?.account_repayment_id ?? after?.account_repaymant_id;
   const repaymentTarget = repaymentName ? String(repaymentName) : repaymentId != null ? `konto #${repaymentId}` : null;
   if (repaymentTarget) translated = translated.replace(/(Zmieniono konto spłacające:\s*„[^”]*”\s*→\s*)„tak”/gi, `$1„${repaymentTarget}”`);
-  return translated;
+  return translateLogCommentStructure(translated);
 }
 
 export const logColumns: DataGridColumn<AppActivityLog>[] = [
@@ -248,7 +283,7 @@ function AppActivityLogModuleInner() {
         const metadata = parsedMetadata(detailsLog);
         const details = importLogDetails(detailsLog);
         return <div className="space-y-4">
-          <div className="flex flex-wrap gap-2"><ModuleBadge tone="info">Konto: {String(metadata.account_name ?? `#${detailsLog.entity_id ?? "—"}`)}</ModuleBadge><ModuleBadge tone="danger">Wydatki: {String(metadata.imported_expenses ?? 0)}</ModuleBadge><ModuleBadge tone="success">Przychody: {String(metadata.imported_incomes ?? 0)}</ModuleBadge><ModuleBadge tone="warning">Duplikaty: {String(metadata.duplicates ?? 0)}</ModuleBadge></div>
+          <div className="flex flex-wrap gap-2"><ModuleBadge tone="info">Konto: {String(metadata.account_name ?? `#${detailsLog.entity_id ?? "-"}`)}</ModuleBadge><ModuleBadge tone="danger">Wydatki: {String(metadata.imported_expenses ?? 0)}</ModuleBadge><ModuleBadge tone="success">Przychody: {String(metadata.imported_incomes ?? 0)}</ModuleBadge><ModuleBadge tone="warning">Duplikaty: {String(metadata.duplicates ?? 0)}</ModuleBadge></div>
           {details.length ? <div className="max-h-[520px] overflow-auto rounded-xl border border-slate-200"><table className="w-full min-w-[900px] text-sm"><thead className="sticky top-0 bg-slate-100 text-left"><tr><th className="px-3 py-2">Data</th><th className="px-3 py-2">Nazwa</th><th className="px-3 py-2">Kierunek</th><th className="px-3 py-2">Typ</th><th className="px-3 py-2">Etykieta</th><th className="px-3 py-2">Budżet</th><th className="px-3 py-2 text-right">Kwota</th></tr></thead><tbody>{details.map((item, index) => <tr key={`${item.transaction_id ?? index}-${item.kind}`} className="border-t border-slate-100"><td className="whitespace-nowrap px-3 py-2">{formatLogDate({ ...detailsLog, timestamp: item.date })}</td><td className="px-3 py-2 font-medium">{item.name}</td><td className={`px-3 py-2 font-semibold ${item.kind === "expense" ? "text-red-700" : "text-emerald-700"}`}>{item.kind === "expense" ? "Wydatek" : "Przychód"}</td><td className="px-3 py-2">{transactionTypeLabel(item.transaction_type ?? null)}</td><td className="px-3 py-2">{item.custom_type_name ?? item.category ?? "Bez etykiety"}</td><td className="px-3 py-2"><ModuleBadge tone={item.excluded_from_analysis ? "neutral" : "success"} size="sm">{item.excluded_from_analysis ? "Nie licz" : "Uwzględnij"}</ModuleBadge></td><td className="whitespace-nowrap px-3 py-2 text-right font-semibold">{formatCurrency(item.amount)}</td></tr>)}</tbody></table></div> : <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Ten starszy log zawiera tylko podsumowanie. Pełna lista pozycji będzie dostępna dla nowych importów.</div>}
         </div>;
       })()}

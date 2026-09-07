@@ -1,4 +1,4 @@
-# MyAnalyze — zasady pracy
+# MyAnalyze - zasady pracy
 
 ## Produkt
 

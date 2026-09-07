@@ -12,4 +12,9 @@ describe("appSettings", () => {
     saveAppSettings({ language: "pl", theme: "dark", currency: "PLN", username: "Mikołaj" });
     expect(loadAppSettings()).toEqual({ language: "pl", theme: "dark", currency: "PLN", username: "Mikołaj" });
   });
+
+  it("remembers English and display currency", () => {
+    saveAppSettings({ language: "en", theme: "light", currency: "EUR", username: "User" });
+    expect(loadAppSettings()).toEqual({ language: "en", theme: "light", currency: "EUR", username: "User" });
+  });
 });

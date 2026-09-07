@@ -14,7 +14,7 @@ type SettingKey = "language" | "theme" | "currency" | "username" | "modules" | "
 interface SettingRow { id: SettingKey; name: string; description: string; value: string; }
 
 function displayValue(row: SettingRow): string {
-  if (row.id === "language") return "Polski";
+  if (row.id === "language") return row.value === "en" ? "English" : "Polski";
   if (row.id === "theme") return row.value === "dark" ? "Ciemny" : "Jasny";
   if (row.id === "username") return row.value || "Nie ustawiono";
   if (row.id === "modules") return "Otwórz zarządzanie modułami";
@@ -70,7 +70,7 @@ export default function ConfigurationPage() {
   const rows = React.useMemo<SettingRow[]>(() => [
     { id: "language", name: "Język aplikacji", description: "Język etykiet i komunikatów interfejsu.", value: settings.language },
     { id: "theme", name: "Motyw aplikacji", description: "Wygląd aplikacji. Zmiana zostanie zastosowana po zapisaniu ustawień.", value: settings.theme },
-    { id: "currency", name: "Waluta domyślna", description: "Waluta kwot, podsumowań i eksportów.", value: settings.currency },
+    { id: "currency", name: "Waluta domyślna", description: "Globalna waluta prezentacji. Zmiana symbolu i formatu nie przelicza zapisanych kwot.", value: settings.currency },
     { id: "username", name: "Imię użytkownika / alias", description: "Opcjonalna lokalna nazwa użytkownika.", value: settings.username },
     { id: "modules", name: "Moduły aplikacji", description: "Nazwy, opisy, ikony, widoczność i kolejność kafelków strony startowej.", value: "" },
     { id: "customTypes", name: "Etykiety transakcji", description: "Wspólne etykiety przychodów i wydatków używane w imporcie, filtrach i raportach.", value: "" },
@@ -83,9 +83,9 @@ export default function ConfigurationPage() {
     {
       key: "value", label: "Wartość", value: displayValue, width: 340,
       render: (row) => {
-        if (row.id === "language") return <select aria-label="Język aplikacji" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value={settings.language} onChange={() => undefined}><option value="pl">Polski</option></select>;
+        if (row.id === "language") return <select aria-label="Język aplikacji" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value={settings.language} onChange={(event) => setSettings((current) => ({ ...current, language: event.target.value as AppSettings["language"] }))}><option value="pl">Polski</option><option value="en">English</option></select>;
         if (row.id === "theme") return <select aria-label="Motyw aplikacji" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value={settings.theme} onChange={(event) => updateTheme(event.target.value as AppSettings["theme"])}><option value="light">Jasny</option><option value="dark">Ciemny</option></select>;
-        if (row.id === "currency") return <select aria-label="Waluta domyślna" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value={settings.currency} onChange={() => undefined}><option value="PLN">PLN</option></select>;
+        if (row.id === "currency") return <div className="space-y-1.5"><select aria-label="Waluta domyślna" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value={settings.currency} onChange={(event) => setSettings((current) => ({ ...current, currency: event.target.value as AppSettings["currency"] }))}><option value="PLN">PLN</option><option value="EUR">EUR</option><option value="USD">USD</option></select><p className="text-xs text-slate-500">Zmiana waluty nie przelicza zapisanych kwot. Wybrana waluta obowiązuje w całej aplikacji.</p></div>;
         if (row.id === "username") return <input aria-label="Imię użytkownika lub alias" maxLength={60} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" placeholder="Nie ustawiono" value={settings.username} onChange={(event) => setSettings((current) => ({ ...current, username: event.target.value }))} />;
         if (row.id === "modules") return <Button tone="primary" onClick={() => setShowModules(true)}><Settings2 size={18} aria-hidden="true" />Zarządzaj modułami</Button>;
         if (row.id === "customTypes") return <Button tone="secondary" onClick={() => setShowCustomTypes(true)}><Settings2 size={18} aria-hidden="true" />Zarządzaj etykietami</Button>;

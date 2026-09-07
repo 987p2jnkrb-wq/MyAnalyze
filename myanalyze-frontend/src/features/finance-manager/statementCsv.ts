@@ -3,6 +3,7 @@ export function normalizeStatementHeader(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pl-PL")
+    .replace(/ł/g, "l")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
@@ -66,7 +67,7 @@ export function statementColumnIndex(headers: string[], aliases: string[]): numb
 }
 
 export function parseStatementAmount(value: string): number | null {
-  let normalized = value.trim().replace(/[−–—]/g, "-").replace(/\s|\u00a0/g, "");
+  let normalized = value.trim().replace(/[−–-]/g, "-").replace(/\s|\u00a0/g, "");
   if (!normalized) return null;
   const negativeParentheses = normalized.startsWith("(") && normalized.endsWith(")");
   normalized = normalized.replace(/[()]/g, "").replace(/[^0-9,.-]/g, "");

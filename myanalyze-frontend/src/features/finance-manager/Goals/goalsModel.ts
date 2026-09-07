@@ -116,11 +116,35 @@ export function proposedGoalAlreadyExists(proposal: ProposedGoal, goals: Financi
 }
 
 export interface AllocationLine {
-  kind: "floor" | "living" | "buffer" | "goal" | "debt" | "mortgage" | "unassigned";
+  kind: "floor" | "living" | "buffer" | "goal" | "debt" | "mortgage" | "account" | "unassigned";
   label: string;
   amount: number;
   goalId?: number;
   debtId?: number;
+  accountId?: number;
+  strategyShare?: number;
+  effectiveShare?: number;
+  note?: string;
+}
+
+export type NewFundsStrategyKind = "debt" | "goal" | "account" | "buffer";
+
+export interface NewFundsStrategyItem {
+  id: string;
+  kind: NewFundsStrategyKind;
+  targetId: number | null;
+  share: number;
+}
+
+export interface NewFundsStrategy {
+  version: 1;
+  items: NewFundsStrategyItem[];
+}
+
+export interface BufferAllocationRule {
+  threshold: number | null;
+  allocation: number;
+  complete: boolean;
 }
 
 export interface DebtFinancingCost {
@@ -168,13 +192,13 @@ export function normalizeGoalSettings(value: Record<string, unknown> | null | un
     dailyLivingBudget: Number(value.daily_living_budget ?? DEFAULT_GOAL_SETTINGS.dailyLivingBudget),
     paydayCycleStartDay: Number(value.payday_cycle_start_day ?? DEFAULT_GOAL_SETTINGS.paydayCycleStartDay),
     thresholds: [Number(value.prog_1), Number(value.prog_2), Number(value.prog_3)],
-    allocations: [Number(value.alokacja_1), Number(value.alokacja_2), Number(value.alokacja_3)],
+    allocations: [Math.round(Number(value.alokacja_1)), Math.round(Number(value.alokacja_2)), Math.round(Number(value.alokacja_3))],
   };
   return Number.isFinite(settings.financialFloor)
     && Number.isFinite(settings.dailyLivingBudget)
     && Number.isInteger(settings.paydayCycleStartDay) && settings.paydayCycleStartDay >= 1 && settings.paydayCycleStartDay <= 31
     && settings.thresholds.every(Number.isFinite)
-    && settings.allocations.every(Number.isFinite)
+    && settings.allocations.every((value) => Number.isFinite(value) && Number.isInteger(value))
     ? settings
     : DEFAULT_GOAL_SETTINGS;
 }
@@ -214,7 +238,7 @@ export function validateGoalSettings(settings: GoalSettings): string | null {
   if (settings.thresholds[0] < settings.financialFloor) return "Próg 1 nie może być niższy niż finansowa podłoga.";
   if (settings.thresholds[1] <= settings.thresholds[0]) return "Próg 2 musi być wyższy niż Próg 1.";
   if (settings.thresholds[2] <= settings.thresholds[1]) return "Próg 3 musi być wyższy niż Próg 2.";
-  if (settings.allocations.some((value) => !Number.isFinite(value) || value < 0 || value > 100)) return "Alokacje muszą mieścić się między 0 a 100%.";
+  if (settings.allocations.some((value) => !Number.isInteger(value) || value < 0 || value > 100)) return "Alokacje muszą być pełnymi procentami między 0 a 100%.";
   return null;
 }
 
@@ -222,8 +246,49 @@ export function goalSettingsPayload(settings: GoalSettings) {
   return {
     financialFloor: settings.financialFloor, dailyLivingBudget: settings.dailyLivingBudget, paydayCycleStartDay: settings.paydayCycleStartDay,
     threshold1: settings.thresholds[0], threshold2: settings.thresholds[1], threshold3: settings.thresholds[2],
-    allocation1: settings.allocations[0], allocation2: settings.allocations[1], allocation3: settings.allocations[2],
+    allocation1: Math.round(settings.allocations[0]), allocation2: Math.round(settings.allocations[1]), allocation3: Math.round(settings.allocations[2]),
   };
+}
+
+export function normalizeNewFundsStrategy(value: unknown): NewFundsStrategy | null {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    if (!parsed.trim()) return null;
+    try { parsed = JSON.parse(parsed) as unknown; }
+    catch { return null; }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const candidate = parsed as { version?: unknown; items?: unknown };
+  if (!Array.isArray(candidate.items) || candidate.items.length === 0) return null;
+  const allowedKinds: NewFundsStrategyKind[] = ["debt", "goal", "account", "buffer"];
+  const items: NewFundsStrategyItem[] = [];
+  for (const [index, raw] of candidate.items.entries()) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const row = raw as Record<string, unknown>;
+    const kind = String(row.kind ?? "") as NewFundsStrategyKind;
+    const share = Math.round(Number(row.share));
+    const targetId: number | null = kind === "buffer" ? null : Number(row.targetId);
+    if (!allowedKinds.includes(kind) || !Number.isInteger(share) || share <= 0 || share > 100) return null;
+    if (kind !== "buffer") {
+      if (targetId === null || !Number.isInteger(targetId) || targetId <= 0) return null;
+    }
+    items.push({ id: String(row.id ?? `${kind}-${targetId ?? "buffer"}-${index + 1}`), kind, targetId, share });
+  }
+  const normalizedTotal = items.reduce((sum, item) => sum + item.share, 0);
+  if (normalizedTotal !== 100) {
+    const difference = 100 - normalizedTotal;
+    const last = items[items.length - 1];
+    const adjusted = last.share + difference;
+    if (!Number.isInteger(adjusted) || adjusted <= 0 || adjusted > 100) return null;
+    items[items.length - 1] = { ...last, share: adjusted };
+  }
+  const uniqueTargets = new Set(items.map((item) => `${item.kind}:${item.targetId ?? "buffer"}`));
+  if (uniqueTargets.size !== items.length) return null;
+  return { version: 1, items };
+}
+
+export function newFundsStrategyPayload(strategy: NewFundsStrategy) {
+  return { items: strategy.items.map((item) => ({ id: item.id, kind: item.kind, targetId: item.targetId, share: Math.round(item.share) })) };
 }
 
 export function buildLiquidityBreakdown(accounts: Account[]): LiquidityBreakdown {
@@ -420,6 +485,155 @@ function isMortgageDebt(debt: GoalDebt): boolean {
 
 function isCreditCardDebt(debt: GoalDebt): boolean {
   return debt.type.toLocaleLowerCase("pl-PL").includes("karta kredytowa");
+}
+
+export function getBufferAllocationRule(realLiquidity: number, settings: GoalSettings): BufferAllocationRule {
+  const liquidity = roundMoney(Math.max(0, realLiquidity));
+  for (let index = 0; index < settings.thresholds.length; index += 1) {
+    if (liquidity < settings.thresholds[index]) {
+      return { threshold: settings.thresholds[index], allocation: settings.allocations[index], complete: false };
+    }
+  }
+  return { threshold: null, allocation: 0, complete: true };
+}
+
+function prioritizedGoals(goals: FinancialGoal[]): FinancialGoal[] {
+  const priorityOrder: Record<GoalPriority, number> = { high: 0, normal: 1, low: 2 };
+  return goals
+    .filter((goal) => goal.status === "active" && goal.allocatedAmount < goal.targetAmount)
+    .sort((left, right) => priorityOrder[left.priority] - priorityOrder[right.priority] || (left.dueDate ?? "9999").localeCompare(right.dueDate ?? "9999") || left.id - right.id);
+}
+
+function prioritizedDebts(debts: GoalDebt[]): GoalDebt[] {
+  return debts
+    .filter((debt) => debt.debt > 0)
+    .sort((left, right) => {
+      const leftCost = getDebtFinancingCost(left)?.rate ?? -1;
+      const rightCost = getDebtFinancingCost(right)?.rate ?? -1;
+      const leftCard = isCreditCardDebt(left) ? 1 : 0;
+      const rightCard = isCreditCardDebt(right) ? 1 : 0;
+      const leftMortgage = isMortgageDebt(left) ? 1 : 0;
+      const rightMortgage = isMortgageDebt(right) ? 1 : 0;
+      return leftMortgage - rightMortgage || rightCard - leftCard || rightCost - leftCost || left.id - right.id;
+    });
+}
+
+export function buildSuggestedNewFundsStrategy(
+  realLiquidity: number,
+  settings: GoalSettings,
+  goals: FinancialGoal[],
+  debts: GoalDebt[],
+  accounts: Account[],
+): NewFundsStrategy {
+  const items: NewFundsStrategyItem[] = [];
+  const debtsSorted = prioritizedDebts(debts);
+  const goalsSorted = prioritizedGoals(goals);
+  const savingsAccounts = accounts.filter((account) => account.active !== false && !isCreditAccount(account));
+  const bufferRule = getBufferAllocationRule(realLiquidity, settings);
+  const linkedEmergencyAccountId = goalsSorted.find((goal) => goal.type === "emergency_fund" && goal.accountId != null)?.accountId ?? null;
+  const fallbackAccount = savingsAccounts.find((account) => account.id === linkedEmergencyAccountId) ?? savingsAccounts[0] ?? null;
+
+  if (debtsSorted[0]) items.push({ id: `debt-${debtsSorted[0].id}`, kind: "debt", targetId: debtsSorted[0].id, share: 50 });
+  if (!bufferRule.complete) items.push({ id: "buffer", kind: "buffer", targetId: null, share: items.length ? 30 : 60 });
+  if (goalsSorted[0]) items.push({ id: `goal-${goalsSorted[0].id}`, kind: "goal", targetId: goalsSorted[0].id, share: items.length ? 20 : 60 });
+  else if (fallbackAccount) items.push({ id: `account-${fallbackAccount.id}`, kind: "account", targetId: fallbackAccount.id, share: items.length ? 20 : 60 });
+
+  if (!items.length && fallbackAccount) items.push({ id: `account-${fallbackAccount.id}`, kind: "account", targetId: fallbackAccount.id, share: 100 });
+  if (!items.length) return { version: 1, items: [] };
+  const currentTotal = items.reduce((sum, item) => sum + item.share, 0);
+  if (currentTotal !== 100) items[items.length - 1] = { ...items[items.length - 1], share: Math.round(items[items.length - 1].share + (100 - currentTotal)) };
+  return { version: 1, items };
+}
+
+export function validateNewFundsStrategy(strategy: NewFundsStrategy, goals: FinancialGoal[], debts: GoalDebt[], accounts: Account[]): string | null {
+  if (!strategy.items.length) return "Dodaj co najmniej jedną pozycję strategii.";
+  const total = strategy.items.reduce((sum, item) => sum + Number(item.share || 0), 0);
+  if (total !== 100) return `Suma udziałów musi wynosić 100% (obecnie ${Math.round(total)}%).`;
+  const seen = new Set<string>();
+  for (const item of strategy.items) {
+    if (!Number.isInteger(item.share) || item.share <= 0 || item.share > 100) return "Każdy udział musi być pełnym procentem większym od 0% i nie większym niż 100%.";
+    const key = `${item.kind}:${item.targetId ?? "buffer"}`;
+    if (seen.has(key)) return "Ta sama pozycja nie może występować w strategii więcej niż raz.";
+    seen.add(key);
+    if (item.kind === "buffer") continue;
+    if (!Number.isInteger(item.targetId) || Number(item.targetId) <= 0) return "Wybierz cel dla każdej pozycji strategii.";
+    if (item.kind === "goal" && !goals.some((goal) => goal.id === item.targetId && goal.status === "active" && goal.allocatedAmount < goal.targetAmount)) return "Jeden z wybranych celów nie jest już aktywny.";
+    if (item.kind === "debt" && !debts.some((debt) => debt.id === item.targetId && debt.debt > 0)) return "Jedno z wybranych zobowiązań nie jest już aktywne.";
+    if (item.kind === "account" && !accounts.some((account) => account.id === item.targetId && account.active !== false && !isCreditAccount(account))) return "Jeden z wybranych depozytów nie jest już dostępny.";
+  }
+  return null;
+}
+
+export function allocateNewFundsWithStrategy(
+  amount: number,
+  realLiquidity: number,
+  settings: GoalSettings,
+  goals: FinancialGoal[],
+  debts: GoalDebt[],
+  accounts: Account[],
+  strategy: NewFundsStrategy,
+  dailyLivingReserve = 0,
+): AllocationLine[] {
+  let remaining = roundMoney(Math.max(0, amount));
+  let liquidity = roundMoney(realLiquidity);
+  const result: AllocationLine[] = [];
+  const add = (line: AllocationLine) => { if (line.amount > 0) result.push({ ...line, amount: roundMoney(line.amount) }); };
+  const floorGap = Math.max(0, roundMoney(settings.financialFloor - liquidity));
+  const floorAmount = Math.min(remaining, floorGap);
+  add({ kind: "floor", label: "Uzupełnienie finansowej podłogi", amount: floorAmount, effectiveShare: amount > 0 ? roundMoney(floorAmount / amount * 100) : 0, note: "Najpierw kalkulator zabezpiecza finansową podłogę." });
+  remaining = roundMoney(remaining - floorAmount); liquidity = roundMoney(liquidity + floorAmount);
+  const livingReserveGap = Math.max(0, roundMoney(settings.financialFloor + Math.max(0, dailyLivingReserve) - liquidity));
+  const livingReserveAmount = Math.min(remaining, livingReserveGap);
+  add({ kind: "living", label: "Rezerwa na codzienne wydatki do kolejnej wypłaty", amount: livingReserveAmount, effectiveShare: amount > 0 ? roundMoney(livingReserveAmount / amount * 100) : 0, note: "Ta część jest liczona przed strategią procentową." });
+  remaining = roundMoney(remaining - livingReserveAmount); liquidity = roundMoney(liquidity + livingReserveAmount);
+  if (remaining <= 0) return result;
+
+  const strategyBase = remaining;
+  let bucketRemaining = strategyBase;
+  let unassigned = 0;
+  strategy.items.forEach((item, index) => {
+    const bucketAmount = index === strategy.items.length - 1
+      ? bucketRemaining
+      : Math.min(bucketRemaining, roundMoney(strategyBase * item.share / 100));
+    bucketRemaining = roundMoney(bucketRemaining - bucketAmount);
+    if (bucketAmount <= 0) return;
+    if (item.kind === "buffer") {
+      const rule = getBufferAllocationRule(liquidity, settings);
+      if (rule.complete || rule.threshold === null || rule.allocation <= 0) {
+        unassigned = roundMoney(unassigned + bucketAmount);
+        return;
+      }
+      const desired = roundMoney(bucketAmount * rule.allocation / 100);
+      const bufferAmount = Math.min(desired, Math.max(0, roundMoney(rule.threshold - liquidity)));
+      const effectiveShare = amount > 0 ? roundMoney(bufferAmount / amount * 100) : 0;
+      add({ kind: "buffer", label: `Poduszka do progu ${rule.threshold.toFixed(2)}`, amount: bufferAmount, strategyShare: item.share, effectiveShare, note: `${Math.round(item.share)}% strategii × ${Math.round(rule.allocation)}% alokacji aktywnego progu.` });
+      liquidity = roundMoney(liquidity + bufferAmount);
+      unassigned = roundMoney(unassigned + bucketAmount - bufferAmount);
+      return;
+    }
+    if (item.kind === "debt") {
+      const debt = debts.find((candidate) => candidate.id === item.targetId && candidate.debt > 0);
+      if (!debt) { unassigned = roundMoney(unassigned + bucketAmount); return; }
+      const allocated = Math.min(bucketAmount, roundMoney(debt.debt));
+      add({ kind: "debt", label: debt.name?.trim() || debt.type, amount: allocated, debtId: debt.id, strategyShare: item.share, effectiveShare: amount > 0 ? roundMoney(allocated / amount * 100) : 0 });
+      unassigned = roundMoney(unassigned + bucketAmount - allocated);
+      return;
+    }
+    if (item.kind === "goal") {
+      const goal = goals.find((candidate) => candidate.id === item.targetId && candidate.status === "active" && candidate.allocatedAmount < candidate.targetAmount);
+      if (!goal) { unassigned = roundMoney(unassigned + bucketAmount); return; }
+      const allocated = Math.min(bucketAmount, roundMoney(goal.targetAmount - goal.allocatedAmount));
+      add({ kind: "goal", label: goal.name, amount: allocated, goalId: goal.id, strategyShare: item.share, effectiveShare: amount > 0 ? roundMoney(allocated / amount * 100) : 0 });
+      unassigned = roundMoney(unassigned + bucketAmount - allocated);
+      return;
+    }
+    const account = accounts.find((candidate) => candidate.id === item.targetId && candidate.active !== false && !isCreditAccount(candidate));
+    if (!account) { unassigned = roundMoney(unassigned + bucketAmount); return; }
+    add({ kind: "account", label: `Depozyt: ${account.nazwa}`, amount: bucketAmount, accountId: account.id, strategyShare: item.share, effectiveShare: amount > 0 ? roundMoney(bucketAmount / amount * 100) : 0 });
+  });
+  unassigned = roundMoney(unassigned + bucketRemaining);
+  add({ kind: "unassigned", label: "Pozostaje do decyzji", amount: unassigned, effectiveShare: amount > 0 ? roundMoney(unassigned / amount * 100) : 0, note: "Np. niewykorzystana część alokacji poduszki albo nadwyżka ponad cel/zadłużenie." });
+  return result;
 }
 
 export function allocateNewFunds(amount: number, realLiquidity: number, settings: GoalSettings, goals: FinancialGoal[], debts: GoalDebt[] = [], dailyLivingReserve = 0): AllocationLine[] {

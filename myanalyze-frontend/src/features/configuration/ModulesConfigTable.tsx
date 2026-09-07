@@ -97,8 +97,8 @@ export default function ModulesConfigTable() {
         setIconPicker((current) => current?.moduleKey === module.key ? null : { moduleKey: module.key, x: Math.max(8, Math.min(rect.left - 120, window.innerWidth - 336)), y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 296)) });
       }}><ModuleIcon value={module.icon} moduleKey={module.key} /></button></div>,
     },
-    { key: "name", label: "Nazwa", width: 220, value: (module) => module.name, edit: { value: (module) => module.name, update: (module, value) => ({ ...module, name: String(value) }) } },
-    { key: "description", label: "Opis", width: 420, value: (module) => module.description, edit: { value: (module) => module.description, update: (module, value) => ({ ...module, description: String(value) }) } },
+    { key: "name", label: "Nazwa", width: 220, value: (module) => module.name, render: (module) => <span data-i18n-ignore="true">{module.name}</span>, edit: { value: (module) => module.name, update: (module, value) => ({ ...module, name: String(value) }) } },
+    { key: "description", label: "Opis", width: 420, value: (module) => module.description, render: (module) => <span data-i18n-ignore="true">{module.description}</span>, edit: { value: (module) => module.description, update: (module, value) => ({ ...module, description: String(value) }) } },
     { key: "visible", label: "Widoczny", width: 130, align: "center", value: (module) => module.visible === "1" ? "Tak" : "Nie", render: (module) => <button type="button" className={`rounded-lg border px-3 py-1 font-semibold ${module.visible === "1" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-600"}`} onClick={() => void toggleVisibility(module)}>{module.visible === "1" ? "Tak" : "Nie"}</button> },
   ], [orderedModules, toggleVisibility]);
 

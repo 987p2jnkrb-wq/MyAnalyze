@@ -10,7 +10,7 @@ interface RefreshButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonE
 }
 
 export default function RefreshButton({ onRefresh, refreshing = false, label = "Odśwież", iconSize = 18, disabled, ...props }: RefreshButtonProps) {
-  const accessibleLabel = refreshing ? `${label} — trwa odświeżanie` : label;
+  const accessibleLabel = refreshing ? `${label} - trwa odświeżanie` : label;
   return (
     <IconButton
       {...props}

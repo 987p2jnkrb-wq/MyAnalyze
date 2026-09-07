@@ -1,8 +1,8 @@
-# Import historii bankowej z CSV
+# Import historii bankowej z CSV i PDF
 
 ## Rola importu
 
-Import CSV nie jest integracją z bankiem. Użytkownik sam pobiera wyciąg, wskazuje plik i zatwierdza wybrane wiersze w podglądzie.
+Import CSV/PDF nie jest integracją z bankiem. Użytkownik sam pobiera wyciąg, wskazuje plik i zatwierdza wybrane wiersze w podglądzie.
 
 Import służy do:
 
@@ -19,12 +19,20 @@ Po wybraniu pliku panel „Dopasuj kolumny CSV” pozwala wskazać separator (au
 
 Mapowanie używa istniejącego parsera i tego samego sprawdzania duplikatów, planów i transferów. Ustawienia dotyczą bieżącego pliku; nie są zapamiętywane jako profil banku. „Zastosuj i sprawdź podgląd” zastępuje wcześniejsze zmiany w podglądzie, lecz nie zapisuje transakcji. Ostateczny zapis następuje po „Importuj”.
 
-Waluta musi odpowiadać walucie aplikacji. Daty nadal wymagają formatu RRRR-MM-DD lub DD.MM.RRRR (także separator `/` lub `-` dla dat europejskich). Mapowanie nie odgaduje amerykańskiej kolejności miesiąc/dzień ani kursów walut. Prowizję należy mapować tylko, jeśli nie została już zawarta w kwocie operacji. Dla PDF/XLSX pozostają wytyczne konwersji do CSV.
+Import oczekuje kwot w PLN niezależnie od globalnej waluty prezentacyjnej aplikacji. Przełącznik PLN/EUR/USD nie przelicza pliku ani zapisanych danych. Daty nadal wymagają formatu RRRR-MM-DD lub DD.MM.RRRR (także separator `/` lub `-` dla dat europejskich). Mapowanie nie odgaduje amerykańskiej kolejności miesiąc/dzień ani kursów walut. Prowizję należy mapować tylko, jeśli nie została już zawarta w kwocie operacji. XLSX należy wcześniej zapisać jako CSV.
+
+### PDF z warstwą tekstową
+
+PDF jest najpierw odczytywany do wierszy i komórek z zachowaniem ich położenia na stronie. Parser wykrywa datę, opis i kolumnę kwoty, a następnie przekazuje kandydatów do tego samego pipeline'u klasyfikacji, duplikatów, transferów i dopasowania planu co CSV. Układy rozpoznane przez adapter mogą mieć dokładniejsze opisy; pozostałe tekstowe tabele trafiają do ostrożnego parsera generycznego i wymagają sprawdzenia w podglądzie.
+
+Parser nie korzysta z OCR. Skan bez możliwej do zaznaczenia warstwy tekstowej nie zostanie odczytany. Nie są też obsługiwane dokumenty zabezpieczone hasłem ani zestawienia, w których nie da się jednoznacznie odnaleźć daty i kwoty. Limit PDF w interfejsie wynosi 10 MB.
+
+Treść wyciągu służy wyłącznie do przygotowania lokalnego podglądu i nie jest zapisywana w logu aktywności. Po zatwierdzeniu historia przechowuje osobne wpisy transakcji oraz krótkie podsumowanie `Import PDF` z nazwą pliku. Nazwa jest ograniczona do 120 znaków.
 
 ### Zapis transakcji
 
 1. Import uruchamia się z akcji konkretnego depozytu.
-2. Adapter CSV odczytuje lokalny plik i normalizuje datę, kwotę, walutę, status, typ, opis/kontrahenta oraz instrument źródłowy.
+2. Adapter CSV lub parser PDF odczytuje lokalny plik i normalizuje datę, kwotę, walutę, status, typ, opis/kontrahenta oraz instrument źródłowy.
 3. Operacje oczekujące pozostają dostępne do zapisu ze statusem pending. Anulowane/odrzucone są domyślnie pominięte. Wiersze zerowe, nieprawidłowe lub w innej walucie trafiają do poprawy.
 4. Kwota ujemna tworzy wydatek, a dodatnia przychód.
 5. Przed pokazaniem podglądu aplikacja sprawdza twarde duplikaty na wybranym koncie oraz szuka możliwego nakładania z importami innych własnych kont.
@@ -33,7 +41,7 @@ Waluta musi odpowiadać walucie aplikacji. Daty nadal wymagają formatu RRRR-MM-
 8. Ponowny import tej samej istniejącej operacji do tego samego depozytu jest rozpoznawany jako duplikat również podczas zapisu. Po usunięciu przychodu lub wydatku jego fingerprint znika razem z rekordem, dlatego pozycję można ponownie zaimportować; historyczny log importu nie blokuje importu.
 9. Wynik trafia do Przychodów/Wydatków oraz do logu aktywności.
 
-Każda zapisana transakcja tworzy osobny wpis w historii konta. Taki wpis ma oznaczenie `IMPORT`, kierunek operacji, kwotę, typ transakcji i nazwę konta. Pola „Przed zmianą” oraz „Po zmianie” pozostają puste, ponieważ import nie zmienia salda. Czas pojedynczej operacji pochodzi z CSV; jeżeli plik zawiera tylko datę, aplikacja używa neutralnej godziny 12:00. Osobny wpis podsumowujący cały import zachowuje rzeczywisty czas wykonania importu. Akcja szczegółów przy tym logu otwiera listę pozycji z nowego importu; starsze logi utworzone przed tą funkcją pokazują wyłącznie podsumowanie.
+Każda zapisana transakcja tworzy osobny wpis w historii konta. Taki wpis ma oznaczenie `IMPORT`, kierunek operacji, kwotę, typ transakcji i nazwę konta. Pola „Przed zmianą” oraz „Po zmianie” pozostają puste, ponieważ import nie zmienia salda. Czas pojedynczej operacji pochodzi z pliku; jeżeli wyciąg zawiera tylko datę, aplikacja używa neutralnej godziny 12:00. Osobny wpis podsumowujący cały import zachowuje rzeczywisty czas wykonania importu. Akcja szczegółów przy tym logu otwiera listę pozycji z nowego importu; starsze logi utworzone przed tą funkcją pokazują wyłącznie podsumowanie.
 
 ### Podgląd i decyzje
 
@@ -49,7 +57,7 @@ Po imporcie użytkownik nadal ręcznie ustawia aktualny stan depozytu na wartoś
 
 ### Karta kredytowa
 
-Import uruchomiony z depozytu typu `Karta kredytowa` korzysta z tego samego pipeline'u CSV, ale jest oznaczany jako `CSV karty kredytowej`. Dla eksportu zawierającego kolumny `Type, Started Date, Completed Date, Description, Amount, Fee, Balance` obowiązują następujące reguły:
+Import uruchomiony z depozytu typu `Karta kredytowa` korzysta z tego samego wspólnego pipeline'u. Dla eksportu zawierającego kolumny `Type, Started Date, Completed Date, Description, Amount, Fee, Balance` obowiązują następujące reguły:
 
 - `CARD_PAYMENT` z kwotą ujemną jest wydatkiem i ma typ „Płatność kartą”;
 - `CARD_REFUND`, `CARD_CHARGEBACK`, zwrot i cashback z kwotą dodatnią są zapisywane po stronie przychodów z typem „Zwrot”; dzięki temu pozostają widoczne w analizie i można je filtrować po typie;
@@ -109,7 +117,7 @@ W takim pliku aplikacja korzysta przede wszystkim z daty zakończenia operacji, 
 
 Jeżeli plik zawiera identyfikator operacji, np. `Transaction ID` albo `ID transakcji`, jest on używany jako najpewniejsza podstawa deduplikacji. Bez takiej kolumny fingerprint jest rozszerzany o liczność wystąpienia. Przykładowo cztery identyczne rekordy tworzą cztery importowalne wystąpienia; kolejny import z pięcioma doda tylko piąte. Powtórzenia bez ID są oznaczone ostrzeżeniem, ale pozostają zaznaczone.
 
-Limit pojedynczego pliku w interfejsie wynosi 5 MB, a jedno żądanie API może zawierać maksymalnie 5 000 transakcji.
+Limit CSV w interfejsie wynosi 5 MB, limit PDF 10 MB, a jedno żądanie API może zawierać maksymalnie 5 000 transakcji.
 
 ## Celowe zabezpieczenia
 

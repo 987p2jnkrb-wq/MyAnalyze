@@ -1,3 +1,5 @@
+import { getAppCurrency } from "./appSettings";
+
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export const MAX_MONEY_AMOUNT = 9_999_999;
@@ -33,7 +35,7 @@ export function validateMoneyRange(value: unknown, label = "Kwota", min = 0, max
   const parsed = typeof value === "number" ? value : Number(String(value).trim().replace(",", "."));
   if (!Number.isFinite(parsed)) return `${label} musi być prawidłową kwotą.`;
   if (parsed < min) return min === 0.01 ? `${label} musi być większa od zera.` : `${label} nie może być ujemna.`;
-  if (parsed > max) return `${label} nie może przekraczać ${max.toLocaleString("pl-PL")} PLN.`;
+  if (parsed > max) return `${label} nie może przekraczać ${max.toLocaleString("pl-PL")} ${getAppCurrency()}.`;
   return null;
 }
 

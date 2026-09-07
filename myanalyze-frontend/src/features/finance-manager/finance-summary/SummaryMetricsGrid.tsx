@@ -17,7 +17,7 @@ const columns: DataGridColumn<SummaryMetric>[] = [
     const assessment = row.dailyBudgetAssessment;
     const ratio = assessment?.ratio == null ? "" : ` · ${assessment.ratio.toLocaleString("pl-PL", { maximumFractionDigits: 1 })}× budżetu dziennego`;
     const status = assessment ? `${assessment.label}${ratio}` : undefined;
-    return <strong title={status} aria-label={status ? `${formatCurrency(row.value)} — ${status}` : undefined} className={`text-base ${row.value < 0 ? "font-extrabold text-red-700" : assessment ? assessmentValueClass[assessment.status] : "text-slate-900"}`}>{formatCurrency(row.value)}{status && <span className="sr-only"> — {status}</span>}</strong>;
+    return <strong title={status} aria-label={status ? `${formatCurrency(row.value)} - ${status}` : undefined} className={`text-base ${row.value < 0 ? "font-extrabold text-red-700" : assessment ? assessmentValueClass[assessment.status] : "text-slate-900"}`}>{formatCurrency(row.value)}{status && <span className="sr-only"> - {status}</span>}</strong>;
   }, exportValue: (row) => formatCurrency(row.value), width: 180, align: "right", hideable: false },
   { key: "calculation", label: "Sposób obliczenia", value: (row) => row.calculation, width: 420, defaultVisible: false },
 ];

@@ -11,14 +11,15 @@ import type { Account } from "../../types/account";
 import apiClient, { apiErrorMessage } from "../../utils/apiClient";
 import { formatDate, formatCurrency } from "../../utils/formatters";
 import { applyMatchAnalysis, markAlreadyImported, markPotentialOverlaps, parseStatementCsv, readStatementFile, type StatementMatchAnalysis, type StatementParseResult, type StatementPotentialOverlap, type StatementTransaction } from "./statementImport";
-import { parseStatementAmount, parseStatementDate } from "./statementCsv";
+import { parseStatementPdf, type StatementPdfExtraction } from "./statementPdf";
+import { normalizeStatementHeader, parseStatementAmount, parseStatementDate } from "./statementCsv";
 import { classifyApplicationType, importSuggestion, inferTransactionType } from "./statementImportPolicy";
 import type { StatementRejectedRow, StatementTransferCandidate } from "./statementImportTypes";
 import { transactionTypeOptionsFor } from "../../types/transactionType";
 import { isCreditAccount } from "../../utils/accountModel";
-import { getAppCurrency } from "../../utils/appSettings";
 import AllocationModal from "../../components/AllocationModal";
 import { useCustomTransactionTypes } from "../../hooks/useCustomTransactionTypes";
+import { useUiText } from "../../i18n";
 
 interface StatementImportModalProps {
   account: Account;
@@ -57,6 +58,30 @@ function ImportOperation({ kind, name, date, amount, accountName }: { kind: "inc
     </div>
     <p className="text-xs text-slate-500">{accountName} · {formatDate(date)}</p>
     <p className="break-words text-sm font-semibold text-slate-900">{name}</p>
+  </div>;
+}
+
+function StatementCorrectionEditor({ transaction, onApply, onReset }: { transaction: StatementTransaction; onApply: (draft: { date: string; name: string; amount: string; rawType: string; counterparty: string }) => void; onReset?: () => void }) {
+  const [date, setDate] = React.useState(transaction.date);
+  const [name, setName] = React.useState(transaction.name);
+  const [amount, setAmount] = React.useState(String(transaction.amount));
+  const [rawType, setRawType] = React.useState(transaction.rawType);
+  const [counterparty, setCounterparty] = React.useState(transaction.counterparty);
+  React.useEffect(() => {
+    setDate(transaction.date); setName(transaction.name); setAmount(String(transaction.amount)); setRawType(transaction.rawType); setCounterparty(transaction.counterparty);
+  }, [transaction.id, transaction.date, transaction.name, transaction.amount, transaction.rawType, transaction.counterparty]);
+  return <div className="space-y-2 rounded-lg border border-blue-100 bg-white p-3">
+    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+      <label className="text-xs font-medium text-slate-600">Data<input type="date" className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+      <label className="text-xs font-medium text-slate-600 xl:col-span-2">Nazwa<input className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={name} onChange={(event) => setName(event.target.value)} /></label>
+      <label className="text-xs font-medium text-slate-600">Kwota ze znakiem<input inputMode="decimal" className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
+      <label className="text-xs font-medium text-slate-600">Typ źródłowy<input className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={rawType} onChange={(event) => setRawType(event.target.value)} /></label>
+      <label className="text-xs font-medium text-slate-600 md:col-span-2 xl:col-span-5">Kontrahent<input className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={counterparty} onChange={(event) => setCounterparty(event.target.value)} /></label>
+    </div>
+    <div className="flex flex-wrap gap-2">
+      <button type="button" className="rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" onClick={() => onApply({ date, name, amount, rawType, counterparty })}>Zastosuj korektę</button>
+      {onReset && <button type="button" className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" onClick={onReset}>Cofnij korektę</button>}
+    </div>
   </div>;
 }
 
@@ -132,11 +157,13 @@ function importPayload(transaction: StatementTransaction) {
 }
 
 export default function StatementImportModal({ account, onClose, onImported, onSuccess }: StatementImportModalProps) {
+  const t = useUiText();
   const [result, setResult] = React.useState<StatementParseResult | null>(null);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [error, setError] = React.useState("");
   const [reading, setReading] = React.useState(false);
   const [csvText, setCsvText] = React.useState("");
+  const [sourceFileName, setSourceFileName] = React.useState("");
   const [importing, setImporting] = React.useState(false);
   const [previewFilter, setPreviewFilter] = React.useState<"all" | "expense" | "income" | "transfer" | "skipped" | "rejected" | "review">("all");
   const [rejectedErrors, setRejectedErrors] = React.useState<Record<string, string>>({});
@@ -148,7 +175,7 @@ export default function StatementImportModal({ account, onClose, onImported, onS
   const [gptPromptOpen, setGptPromptOpen] = React.useState(false);
   const { activeRows: customTypes } = useCustomTransactionTypes();
   const [rememberClassification, setRememberClassification] = React.useState(false);
-  const expectedCurrency = getAppCurrency();
+  const expectedCurrency = "PLN";
   const creditCard = isCreditAccount(account);
 
   React.useEffect(() => {
@@ -181,26 +208,35 @@ export default function StatementImportModal({ account, onClose, onImported, onS
     }
   };
 
-  const chooseFile = async (file: File | undefined) => {
-    if (!file) return;
-    setCsvText("");
-    if (!file.name.toLocaleLowerCase("pl-PL").endsWith(".csv") || file.size > 5 * 1024 * 1024) {
-      setResult(null); setSelected(new Set());
-      setError("Wybierz plik CSV o rozmiarze do 5 MB.");
-      return;
-    }
-    setReading(true);
+  const prepareParsed = async (input: StatementParseResult) => {
+    let parsed = input;
     try {
-      const text = await readStatementFile(file);
-      setCsvText(text);
-      await previewCsv(text);
+      const mappingsResponse = await apiClient.get(`/custom-transaction-types/import-classification/${importProvider(parsed, account)}`);
+      const mappings = Array.isArray(mappingsResponse.data) ? mappingsResponse.data : [];
+      parsed = { ...parsed, transactions: parsed.transactions.map((transaction) => {
+        const exact = mappings.find((item: Record<string, unknown>) => item.kind === transaction.kind && String(item.raw_type ?? "").toLocaleLowerCase("pl-PL") === transaction.rawType.trim().toLocaleLowerCase("pl-PL"));
+        const fallback = mappings.find((item: Record<string, unknown>) => item.kind === transaction.kind && !String(item.raw_type ?? ""));
+        const mapping = exact ?? fallback;
+        return mapping ? { ...transaction, customTypeId: mapping.custom_type_id == null ? null : Number(mapping.custom_type_id), customTypeName: mapping.custom_type_name == null ? null : String(mapping.custom_type_name) } : transaction;
+      }) };
+    } catch { /* Brak konfiguracji nie blokuje importu. */ }
+    try {
+      const duplicateCheck = await apiClient.post<DuplicateCheckResponse>(`/konta/${account.id}/import-transactions/check-duplicates`, {
+        sourceKeys: parsed.transactions.map((transaction) => transaction.sourceKey),
+        transactions: parsed.transactions.map(({ sourceKey, name, amount, date, transactionType, bankStatus, transferSuggested }) => ({ sourceKey, name, amount, date, transactionType, bankStatus, transferSuggested })),
+      });
+      parsed = markAlreadyImported(parsed, duplicateCheck.data.duplicateSourceKeys);
+      parsed = applyMatchAnalysis(parsed, duplicateCheck.data.matchAnalysis ?? [], settings.autoSelectPlanMatch);
+      parsed = markPotentialOverlaps(parsed, duplicateCheck.data.possibleOverlaps ?? []);
     } catch {
-      setResult(null); setSelected(new Set());
-      setError("Nie udało się odczytać pliku CSV.");
-    } finally { setReading(false); }
+      parsed = { ...parsed, warnings: [...parsed.warnings, "Nie udało się sprawdzić wcześniejszych importów. Twarde duplikaty zostaną ponownie sprawdzone podczas zapisu."] };
+    }
+    setResult(parsed);
+    setSelected(new Set(parsed.transactions.filter((transaction) => transaction.includeByDefault).map((transaction) => transaction.id)));
+    if (!parsed.transactions.length) setError("Nie znaleziono transakcji możliwych do importu.");
   };
 
-  const previewCsv = async (text: string, layout?: StatementCsvLayout) => {
+  const resetPreview = () => {
     setError("");
     setResult(null);
     setSelected(new Set());
@@ -209,40 +245,132 @@ export default function StatementImportModal({ account, onClose, onImported, onS
     setManualTransfer(null);
     setTransferPreview(null);
     setAllocationTransactionId(null);
+  };
+
+  const previewCsv = async (text: string, layout?: StatementCsvLayout) => {
+    resetPreview();
     setReading(true);
     try {
-      let parsed = parseStatementCsv(text, expectedCurrency, { accountKind: creditCard ? "credit-card" : "bank-account", detectTransferSuggestions: settings.detectTransferSuggestions, mappedAccountId: account.id, layout });
-      try {
-        const mappingsResponse = await apiClient.get(`/custom-transaction-types/import-classification/${importProvider(parsed, account)}`);
-        const mappings = Array.isArray(mappingsResponse.data) ? mappingsResponse.data : [];
-        parsed = { ...parsed, transactions: parsed.transactions.map((transaction) => {
-          const exact = mappings.find((item: Record<string, unknown>) => item.kind === transaction.kind && String(item.raw_type ?? "").toLocaleLowerCase("pl-PL") === transaction.rawType.trim().toLocaleLowerCase("pl-PL"));
-          const fallback = mappings.find((item: Record<string, unknown>) => item.kind === transaction.kind && !String(item.raw_type ?? ""));
-          const mapping = exact ?? fallback;
-          return mapping ? { ...transaction, customTypeId: mapping.custom_type_id == null ? null : Number(mapping.custom_type_id), customTypeName: mapping.custom_type_name == null ? null : String(mapping.custom_type_name) } : transaction;
-        }) };
-      } catch { /* Brak konfiguracji nie blokuje importu. */ }
-      try {
-        const duplicateCheck = await apiClient.post<DuplicateCheckResponse>(`/konta/${account.id}/import-transactions/check-duplicates`, {
-          sourceKeys: parsed.transactions.map((transaction) => transaction.sourceKey),
-          transactions: parsed.transactions.map(({ sourceKey, name, amount, date, transactionType, bankStatus, transferSuggested }) => ({ sourceKey, name, amount, date, transactionType, bankStatus, transferSuggested })),
-        });
-        parsed = markAlreadyImported(parsed, duplicateCheck.data.duplicateSourceKeys);
-        parsed = applyMatchAnalysis(parsed, duplicateCheck.data.matchAnalysis ?? [], settings.autoSelectPlanMatch);
-        parsed = markPotentialOverlaps(parsed, duplicateCheck.data.possibleOverlaps ?? []);
-      } catch {
-        parsed = { ...parsed, warnings: [...parsed.warnings, "Nie udało się sprawdzić wcześniejszych importów. Twarde duplikaty zostaną ponownie sprawdzone podczas zapisu."] };
-      }
-      setResult(parsed);
-      setSelected(new Set(parsed.transactions.filter((transaction) => transaction.includeByDefault).map((transaction) => transaction.id)));
-      if (!parsed.transactions.length) setError("Nie znaleziono transakcji możliwych do importu.");
+      const parsed = parseStatementCsv(text, expectedCurrency, { accountKind: creditCard ? "credit-card" : "bank-account", detectTransferSuggestions: settings.detectTransferSuggestions, mappedAccountId: account.id, layout });
+      await prepareParsed(parsed);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Nie udało się odczytać pliku CSV.");
     } finally { setReading(false); }
   };
 
+  const previewPdf = async (file: File) => {
+    resetPreview();
+    setReading(true);
+    try {
+      const bytes = await file.arrayBuffer();
+      const response = await apiClient.post<StatementPdfExtraction>(`/konta/${account.id}/extract-statement-pdf`, bytes, { headers: { "Content-Type": "application/pdf" } });
+      const parsed = parseStatementPdf(response.data, expectedCurrency, {
+        accountKind: creditCard ? "credit-card" : "bank-account",
+        detectTransferSuggestions: settings.detectTransferSuggestions,
+        mappedAccountId: account.id,
+        institutionName: account.institution_name,
+      });
+      await prepareParsed(parsed);
+    } catch (caught) {
+      setError(apiErrorMessage(caught, caught instanceof Error ? caught.message : "Nie udało się odczytać pliku PDF."));
+    } finally { setReading(false); }
+  };
+
+  const chooseFile = async (file: File | undefined) => {
+    if (!file) return;
+    setCsvText("");
+    setSourceFileName(file.name);
+    const lowerName = file.name.toLocaleLowerCase("pl-PL");
+    if (lowerName.endsWith(".pdf")) {
+      if (file.size > 10 * 1024 * 1024) {
+        resetPreview();
+        setError("Wybierz plik PDF o rozmiarze do 10 MB.");
+        return;
+      }
+      await previewPdf(file);
+      return;
+    }
+    if (!lowerName.endsWith(".csv") || file.size > 5 * 1024 * 1024) {
+      resetPreview();
+      setError("Wybierz plik CSV do 5 MB albo PDF do 10 MB.");
+      return;
+    }
+    setReading(true);
+    try {
+      const text = await readStatementFile(file);
+      setCsvText(text);
+      await previewCsv(text);
+    } catch {
+      resetPreview();
+      setError("Nie udało się odczytać pliku CSV.");
+    } finally { setReading(false); }
+  };
+
   const updateTransaction = (id: string, update: Partial<StatementTransaction>) => {
     setResult((current) => current ? { ...current, transactions: current.transactions.map((transaction) => transaction.id === id ? { ...transaction, ...update } : transaction) } : current);
+  };
+
+  const applyTransactionCorrection = (
+    transaction: StatementTransaction,
+    draft: { date: string; name: string; amount: string; rawType: string; counterparty: string },
+    restoreOriginalClassification = false,
+  ) => {
+    const date = parseStatementDate(draft.date);
+    const amount = parseStatementAmount(draft.amount);
+    const name = draft.name.trim() || draft.counterparty.trim() || draft.rawType.trim() || "Operacja bankowa";
+    if (!date || amount === null || amount === 0) {
+      setError("Korekta wymaga prawidłowej daty i niezerowej kwoty ze znakiem.");
+      return;
+    }
+    const kind = amount < 0 ? "expense" as const : "income" as const;
+    const rawType = draft.rawType.trim();
+    const counterparty = draft.counterparty.trim();
+    const suggestion = importSuggestion(rawType, name, settings.detectTransferSuggestions);
+    const inferredTransactionType = inferTransactionType(rawType, name, amount);
+    const originalTransactionType = transaction.rawData.original_transaction_type || null;
+    const sameProviderSignal = normalizeStatementHeader(rawType) === normalizeStatementHeader(transaction.rawType)
+      && Math.sign(amount) === Math.sign(transaction.amount);
+    const correctedTransactionType = restoreOriginalClassification
+      ? originalTransactionType as StatementTransaction["transactionType"]
+      : inferredTransactionType ?? (sameProviderSignal ? transaction.transactionType : null);
+    const correctedApplicationType = restoreOriginalClassification && transaction.rawData.original_application_type
+      ? transaction.rawData.original_application_type as StatementTransaction["applicationType"]
+      : classifyApplicationType(rawType, name, amount, correctedTransactionType);
+    const hardDuplicate = ["already-imported", "hard-duplicate"].includes(transaction.duplicateState ?? "");
+    updateTransaction(transaction.id, {
+      date,
+      occurredAt: `${date}T12:00:00`,
+      name,
+      amount: Math.round(amount * 100) / 100,
+      kind,
+      rawType,
+      rawDescription: name,
+      counterparty,
+      transactionType: correctedTransactionType,
+      applicationType: correctedApplicationType,
+      transferSuggested: suggestion.transferSuggested,
+      excludeFromAnalysis: hardDuplicate ? transaction.excludeFromAnalysis : suggestion.excludeFromAnalysis,
+      resolution: hardDuplicate ? "skip" : "new",
+      duplicateState: hardDuplicate ? transaction.duplicateState : transaction.duplicateState === "same-file" ? "same-file" : undefined,
+      planCandidates: [], existingCandidates: [], planAllocations: [], transferCandidate: undefined, transferCandidates: undefined,
+      note: [transaction.note?.replace(/Wprowadzono ręczną korektę odczytu PDF\.?.*$/i, "").trim(), "Wprowadzono ręczną korektę odczytu PDF. Dopasowanie planu/transferu zostało wyzerowane; sprawdź decyzję przed importem."].filter(Boolean).join(" "),
+    });
+    if (!hardDuplicate) setSelected((current) => new Set(current).add(transaction.id));
+    setError("");
+  };
+
+  const resetTransactionCorrection = (transaction: StatementTransaction) => {
+    const originalDate = transaction.rawData.original_date;
+    const originalAmount = transaction.rawData.original_amount;
+    const originalName = transaction.rawData.original_name;
+    if (!originalDate || !originalAmount || !originalName) return;
+    applyTransactionCorrection(transaction, {
+      date: originalDate,
+      amount: originalAmount,
+      name: originalName,
+      rawType: transaction.rawData.original_raw_type ?? transaction.rawType,
+      counterparty: transaction.rawData.original_counterparty ?? transaction.counterparty,
+    }, true);
   };
   const isUnclassified = (transaction: StatementTransaction) => transaction.applicationType === "unknown" || (!transaction.rawType.trim() && transaction.transactionType == null);
   const classifyUnknown = async (kind: "income" | "expense", update: { customTypeId?: number | null; customTypeName?: string | null }) => {
@@ -302,7 +430,7 @@ export default function StatementImportModal({ account, onClose, onImported, onS
       currency,
       includeByDefault: row.bankStatus !== "cancelled",
       excludeFromAnalysis: row.bankStatus === "cancelled",
-      note: row.bankStatus === "pending" ? "Operacja oczekująca — kolejny wyciąg może zaktualizować jej status." : undefined,
+      note: row.bankStatus === "pending" ? "Operacja oczekująca - kolejny wyciąg może zaktualizować jej status." : undefined,
       transactionType: inferTransactionType(row.rawType, name, amount),
       bankStatus: row.bankStatus,
       rawType: row.rawType,
@@ -438,7 +566,7 @@ export default function StatementImportModal({ account, onClose, onImported, onS
       <input type="checkbox" aria-label={`Importuj ${row.name}`} disabled={["already-imported", "hard-duplicate"].includes(row.duplicateState ?? "")} checked={selected.has(row.id)} onChange={(event) => changeResolution(row, event.target.checked ? (row.resolution === "skip" ? "new" : row.resolution) : "skip")} /> },
     { key: "date", label: "Data", value: (row) => row.date, render: (row) => formatDate(row.date), sortable: true, width: 110 },
     { key: "name", label: "Transakcja", value: (row) => row.name, sortable: true, width: 310, render: (row) => <div className="min-w-0 space-y-2">
-      <p className="whitespace-normal break-words font-semibold text-slate-900">{row.name}</p>
+      <p data-i18n-ignore="true" className="whitespace-normal break-words font-semibold text-slate-900">{row.name}</p>
       <p className="text-xs text-slate-500">{account.nazwa}</p>
       <div className="flex flex-wrap gap-1">
         {row.bankStatus !== "completed" && <ModuleBadge tone="warning" size="sm">{row.bankStatus === "pending" ? "Oczekująca" : "Anulowana"}</ModuleBadge>}
@@ -448,9 +576,11 @@ export default function StatementImportModal({ account, onClose, onImported, onS
         <summary className="cursor-pointer font-semibold text-blue-700">Szczegóły i ustawienia</summary>
         <div className="mt-2 space-y-3 whitespace-normal rounded-lg bg-slate-50 p-3">
           {row.note && <p className="text-amber-800">{row.note}</p>}
-          <p>Kontrahent: {row.counterparty || "—"}</p>
-          <p>Typ ze źródła: {row.rawType || "Nie podano — nie blokuje importu"}</p>
-          <label className="block">Typ transakcji<select aria-label={`Typ transakcji ${row.name}`} value={row.transactionType ?? ""} className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1.5" onChange={(event) => updateTransaction(row.id, { transactionType: (event.target.value || null) as StatementTransaction["transactionType"] })}><option value="">Nie określono</option>{transactionTypeOptionsFor(row.kind).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <p>Kontrahent: {row.counterparty || "-"}</p>
+          <p>Typ ze źródła: {row.rawType || "Nie podano - nie blokuje importu"}</p>
+          {row.rawData.pdf_text && <details className="rounded border border-slate-200 bg-white px-2 py-2"><summary className="cursor-pointer font-semibold text-slate-700">Tekst odczytany z PDF</summary><p className="mt-2 break-words font-mono text-[11px] leading-5 text-slate-500">{row.rawData.pdf_text}</p></details>}
+          <StatementCorrectionEditor transaction={row} onApply={(draft) => applyTransactionCorrection(row, draft)} onReset={row.rawData.original_date ? () => resetTransactionCorrection(row) : undefined} />
+          <label className="block">{t("Typ transakcji")}<select aria-label={`${t("Typ transakcji")} ${row.name}`} value={row.transactionType ?? ""} className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1.5" onChange={(event) => updateTransaction(row.id, { transactionType: (event.target.value || null) as StatementTransaction["transactionType"] })}><option value="">Nie określono</option>{transactionTypeOptionsFor(row.kind).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           <label className="flex items-center gap-2"><input type="checkbox" aria-label={`Licz w analizach ${row.name}`} disabled={row.resolution === "transfer"} checked={row.resolution !== "transfer" && !row.excludeFromAnalysis} onChange={(event) => updateTransaction(row.id, { excludeFromAnalysis: !event.target.checked })} />Licz w analizach</label>
         </div>
       </details>
@@ -479,9 +609,9 @@ export default function StatementImportModal({ account, onClose, onImported, onS
           <button type="button" disabled={!row.planCandidates?.length || (row.planAllocations ?? []).length >= (row.planCandidates ?? []).length || Math.abs(row.amount) <= (row.planAllocations ?? []).reduce((sum, item) => sum + item.allocatedAmount, 0)} className="text-sm font-semibold text-blue-700 disabled:opacity-50" onClick={() => setAllocationTransactionId(row.id)}>Wybierz plan i kwotę</button>
         </> : existing ? <>
           <ImportOperation kind={existing.kind} name={existing.name} date={existing.date} amount={existing.amount} accountName={account.nazwa} />
-          <p className="text-xs text-slate-500">Potwierdzasz tę samą operację — bez dodawania drugiej transakcji.</p>
+          <p className="text-xs text-slate-500">Potwierdzasz tę samą operację - bez dodawania drugiej transakcji.</p>
         </> : row.resolution === "new" ? <>
-          <p className="text-xs text-slate-500">{row.excludeFromAnalysis ? "Wyłączona z analiz — możesz zmienić to w szczegółach." : row.bankStatus === "completed" ? "Zostanie dodana do historii i wykonania." : "Zapisze się ze statusem z wyciągu; nie jest wykonaniem."}</p>
+          <p className="text-xs text-slate-500">{row.excludeFromAnalysis ? "Wyłączona z analiz - możesz zmienić to w szczegółach." : row.bankStatus === "completed" ? "Zostanie dodana do historii i wykonania." : "Zapisze się ze statusem z wyciągu; nie jest wykonaniem."}</p>
           {!!row.transferCandidates?.length && row.bankStatus === "completed" && <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
             <p className="text-xs text-amber-900">Możliwy transfer · {row.transferCandidates.length} {row.transferCandidates.length === 1 ? "kandydat" : "kandydatów"}. Potwierdź, jeśli to ten sam przepływ.</p>
             <button type="button" className="mt-1 text-sm font-semibold text-blue-700 hover:underline" onClick={() => row.transferCandidates?.length === 1 ? setTransferPreview({ transaction: row, candidate: row.transferCandidates[0] }) : void openManualTransfer(row)}>Porównaj drugą stronę</button>
@@ -503,21 +633,22 @@ export default function StatementImportModal({ account, onClose, onImported, onS
     <Modal
       open
       onClose={importing || reading ? () => undefined : onClose}
-      title={`Import wyciągu — ${account.nazwa}`}
-      description={creditCard ? "Transakcje zostaną zapisane jako wykonane. Import nie zmieni salda, zadłużenia ani wolnego limitu karty." : "Transakcje zostaną zapisane jako wykonane. Import nie zmieni salda konta."}
+      title={`${t("Import wyciągu")} - ${account.nazwa}`}
+      description={t(creditCard ? "Transakcje zostaną zapisane jako wykonane. Import nie zmieni salda, zadłużenia ani wolnego limitu karty." : "Transakcje zostaną zapisane jako wykonane. Import nie zmieni salda konta.")}
       size="full"
       footer={<div className="flex flex-wrap items-center justify-between gap-3"><span className="text-sm text-slate-600">Wybrano: <strong>{selectedTransactions.length}</strong></span><div className="flex gap-2"><Button tone="neutral" disabled={importing || reading} onClick={onClose}>Anuluj</Button><Button tone="primary" disabled={importing || reading || !selectedTransactions.length} onClick={() => void importTransactions()}>{importing ? "Importowanie…" : `Importuj ${selectedTransactions.length}`}</Button></div></div>}
     >
       <div className="space-y-5">
         <label className={`flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50 px-4 text-center transition hover:border-blue-400 hover:bg-blue-100 ${result ? "flex-wrap gap-3 py-2" : "flex-col py-7"}`}>
           <FileUp size={result ? 20 : 30} className="text-blue-600" aria-hidden="true" />
-          <span className="font-semibold text-blue-800">{reading ? "Odczytywanie pliku…" : result ? "Wybierz inny plik CSV" : "Wybierz wyciąg CSV"}</span>
-          <span className="mt-1 text-xs text-blue-700">CSV banku lub portfela · własne przypisanie kolumn · maks. 5 MB</span>
-          <input type="file" accept=".csv,text/csv" disabled={reading || importing} className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void chooseFile(file); }} />
+          <span className="font-semibold text-blue-800">{t(reading ? "Odczytywanie pliku…" : result ? "Wybierz inny plik CSV lub PDF" : "Wybierz wyciąg CSV lub PDF")}</span>
+          <span className="mt-1 text-xs text-blue-700">{t("PDF z warstwą tekstową (automatyczne rozpoznanie + korekta) albo CSV z własnym przypisaniem kolumn")}</span>
+          {sourceFileName && <span className="text-xs font-medium text-blue-900">{sourceFileName}</span>}
+          <input type="file" accept=".csv,text/csv,.pdf,application/pdf" disabled={reading || importing} className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void chooseFile(file); }} />
         </label>
         {csvText && <StatementCsvMapping key={csvText} text={csvText} currency={expectedCurrency} busy={reading || importing} onApply={(layout) => previewCsv(csvText, layout)} />}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3">
-          <p className="text-sm text-violet-950"><strong>Masz PDF, XLSX albo niezgodny CSV?</strong><span className="block text-xs text-violet-800">Skopiuj gotowe wytyczne, dodaj swój wyciąg do GPT i zapisz otrzymany plik jako CSV.</span></p>
+          <p className="text-sm text-violet-950"><strong>PDF nie został rozpoznany, masz skan albo XLSX?</strong><span className="block text-xs text-violet-800">PDF z tekstem aplikacja czyta lokalnie. Dla skanu lub nietypowego pliku możesz nadal użyć gotowych wytycznych i przekonwertować go do CSV.</span></p>
           <button type="button" className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-violet-300 bg-white px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100" onClick={() => setGptPromptOpen(true)}><Sparkles size={17} aria-hidden="true" />Generuj wytyczne dla GPT</button>
         </div>
 
@@ -536,7 +667,7 @@ export default function StatementImportModal({ account, onClose, onImported, onS
 
         {result && <>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={filterButtonClass(previewFilter === "all")} aria-pressed={previewFilter === "all"} onClick={() => setPreviewFilter("all")}><ModuleBadge tone="info" size="sm">Wszystkie: {result.transactions.length}</ModuleBadge></button>
+            <button type="button" className={filterButtonClass(previewFilter === "all")} aria-pressed={previewFilter === "all"} onClick={() => setPreviewFilter("all")}><ModuleBadge tone="info" size="sm">{t("Wszystkie")}: {result.transactions.length}</ModuleBadge></button>
             <ModuleBadge tone="info" size="sm">Format: {result.source}</ModuleBadge>
             {creditCard && account.repayment_account_name && <ModuleBadge tone="neutral" size="sm">Konto spłacające: {account.repayment_account_name}</ModuleBadge>}
             <button type="button" className={filterButtonClass(previewFilter === "expense")} aria-pressed={previewFilter === "expense"} onClick={() => setPreviewFilter((current) => current === "expense" ? "all" : "expense")}><ModuleBadge tone="danger" size="sm">Wydatki: {selectedExpenses.length} · {formatCurrency(expenseTotal)}</ModuleBadge></button>
@@ -570,8 +701,8 @@ export default function StatementImportModal({ account, onClose, onImported, onS
         </>}
 
         <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          <summary className="cursor-pointer font-semibold text-slate-700">Wymagania dla nierozpoznanego CSV</summary>
-          <p className="mt-2">Automatyczny odczyt szuka nagłówków w pierwszym wierszu. Jeśli plik ma inne nazwy kolumn lub dodatkowy opis na początku, użyj „Dopasuj kolumny CSV”. Wymagane są: data transakcji oraz kwota ze znakiem albo osobne kolumny obciążeń i uznań. Opis jest opcjonalny. Obsługiwane są kwoty z przecinkiem lub kropką oraz daty RRRR-MM-DD i DD.MM.RRRR. Waluta musi zgadzać się z walutą aplikacji; import nie przelicza kursów.</p>
+          <summary className="cursor-pointer font-semibold text-slate-700">Formaty i korekta importu</summary>
+          <p className="mt-2">PDF jest najpierw odczytywany lokalnie i dopasowywany na podstawie położenia dat, opisów i kwot. Znane układy mają dokładniejsze adaptery, a nierozpoznane dokumenty korzystają z heurystyk. Nic nie zapisuje się automatycznie: każdą pozycję możesz odznaczyć, poprawić lub cofnąć korektę przed kliknięciem „Importuj”. Dla CSV nadal możesz ręcznie dopasować kolumny. Import nie przelicza walut.</p>
         </details>
         <AllocationModal
           open={Boolean(allocationTransaction)}

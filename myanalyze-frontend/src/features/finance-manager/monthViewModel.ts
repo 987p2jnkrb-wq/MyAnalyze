@@ -4,6 +4,7 @@ import type { RecurringModel } from "../../context/useRecurringResource";
 import { roundMoney } from "../../utils/validation";
 import { aggregateFinancialRange, type FinancialAmountEntry } from "./financialRangeAggregation";
 import { collectPlannedOperations } from "./financeSummary";
+import { getAppLocale } from "../../utils/appSettings";
 
 export interface MonthLabelResult {
   id: string;
@@ -121,8 +122,9 @@ export function formatMonthLabel(month: string): string {
   const match = /^(\d{4})-(\d{2})$/.exec(month);
   if (!match) return month;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
-  const label = date.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
-  return label.charAt(0).toLocaleUpperCase("pl-PL") + label.slice(1);
+  const locale = getAppLocale();
+  const label = date.toLocaleDateString(locale, { month: "long", year: "numeric" });
+  return label.charAt(0).toLocaleUpperCase(locale) + label.slice(1);
 }
 
 export function buildMonthlyActualHistory(incomes: TransactionModel[], expenses: TransactionModel[]): MonthlyActualSummary[] {

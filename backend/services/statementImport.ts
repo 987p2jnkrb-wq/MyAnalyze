@@ -311,7 +311,7 @@ export async function importStatementTransactions(
   accountId: number,
   accountName: string,
   value: unknown,
-  source: typeof BANK_STATEMENT_SOURCE | typeof CREDIT_CARD_STATEMENT_SOURCE = BANK_STATEMENT_SOURCE,
+  source: string = BANK_STATEMENT_SOURCE,
 ): Promise<StatementImportResult> {
   const transactions = normalizeImportTransactions(value);
   let transactionStarted = false;

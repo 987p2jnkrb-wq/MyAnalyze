@@ -12,8 +12,10 @@ import { setToastFunction } from "./utils/apiClient";
 import { AccountProvider } from "./context/AccountContext";
 import { ToastType } from "./context/toast-types";
 import { useEffect } from "react";
+import { AppPresentationProvider, useAppPresentation } from "./i18n";
 
 const AppContent = () => {
+  useAppPresentation();
   const { showToast } = useToast();
   useEffect(() => {
     setToastFunction((message, type, duration) => showToast(message, type as ToastType, duration));
@@ -54,9 +56,11 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <ToastProvider>
-    <AppContent />
-  </ToastProvider>
+  <AppPresentationProvider>
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
+  </AppPresentationProvider>
 );
 
 export default App;

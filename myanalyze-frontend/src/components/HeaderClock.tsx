@@ -1,4 +1,5 @@
 import React from "react";
+import { getAppLocale } from "../utils/appSettings";
 
 interface HeaderClockProps {
   className?: string;
@@ -12,8 +13,9 @@ export default function HeaderClock({ className = "" }: HeaderClockProps) {
     return () => window.clearInterval(interval);
   }, []);
 
-  const date = now.toLocaleDateString("pl-PL", { year: "numeric", month: "2-digit", day: "2-digit" });
-  const time = now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const locale = getAppLocale();
+  const date = now.toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
+  const time = now.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   return (
     <div className={`flex min-w-[120px] flex-col items-end ${className}`} aria-label={`${date}, ${time}`}>

@@ -60,7 +60,7 @@ const LoanPaymentsModal: React.FC<LoanPaymentsModalProps> = ({ open, loanId, onC
     { key: "interest_amount", label: "Odsetki", value: (row) => Number(row.interest_amount), render: (row) => formatCurrency(row.interest_amount), exportValue: (row) => formatCurrency(row.interest_amount), sortable: true, width: 115, align: "right" },
     { key: "saldo_po", label: "Pozostało", value: (row) => Number(row.saldo_po), render: (row) => formatCurrency(row.saldo_po), exportValue: (row) => formatCurrency(row.saldo_po), sortable: true, width: 135, align: "right" },
     { key: "status", label: "Status", value: (row) => row.is_paid ? "Zapłacona" : "Do zapłaty", render: (row) => <ModuleBadge tone={row.is_paid ? "success" : "warning"} size="sm">{row.is_paid ? "Zapłacona" : "Do zapłaty"}</ModuleBadge>, sortable: true, filterable: true, width: 125 },
-    { key: "paid_date", label: "Data zapłaty", value: (row) => row.paid_date ?? "", render: (row) => row.paid_date ? formatDate(row.paid_date) : "—", exportValue: (row) => row.paid_date ? formatDate(row.paid_date) : "", sortable: true, width: 130, defaultVisible: false },
+    { key: "paid_date", label: "Data zapłaty", value: (row) => row.paid_date ?? "", render: (row) => row.paid_date ? formatDate(row.paid_date) : "-", exportValue: (row) => row.paid_date ? formatDate(row.paid_date) : "", sortable: true, width: 130, defaultVisible: false },
   ], []);
 
   return (

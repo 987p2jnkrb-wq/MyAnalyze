@@ -23,7 +23,7 @@ export function importSuggestion(
         include: true,
         excludeFromAnalysis: false,
         transferSuggested: true,
-        note: "Możliwy transfer własny — sugestia wymaga wskazania drugiej strony. Do tego czasu operacja jest normalnie liczona.",
+        note: "Możliwy transfer własny - sugestia wymaga wskazania drugiej strony. Do tego czasu operacja jest normalnie liczona.",
       }
     : { include: true, excludeFromAnalysis: false, transferSuggested: false };
 }
@@ -44,8 +44,15 @@ export function inferTransactionType(type: string, description: string, amount: 
   return null;
 }
 
-export function classifyApplicationType(type: string, description: string, amount: number): StatementApplicationType {
-  const transactionType = inferTransactionType(type, description, amount);
+export function classifyApplicationType(
+  type: string,
+  description: string,
+  amount: number,
+  transactionTypeOverride?: TransactionType | null,
+): StatementApplicationType {
+  const transactionType = transactionTypeOverride === undefined
+    ? inferTransactionType(type, description, amount)
+    : transactionTypeOverride;
   if (transactionType === "card_payment") return "card_payment";
   if (transactionType === "refund") return "refund";
   if (["transfer_in", "transfer_out", "top_up"].includes(transactionType ?? "") || importSuggestion(type, description).transferSuggested) return "transfer_candidate";
@@ -59,7 +66,7 @@ export function markAlreadyImported(result: StatementParseResult, duplicateSourc
   const transactions = result.transactions.map((transaction) => {
     if (!duplicateKeys.has(transaction.sourceKey)) return transaction;
     duplicates += 1;
-    const duplicateNote = "Ta transakcja jest już zapisana na tym koncie — domyślnie odznaczona.";
+    const duplicateNote = "Ta transakcja jest już zapisana na tym koncie - domyślnie odznaczona.";
     return {
       ...transaction,
       includeByDefault: false,
@@ -83,8 +90,8 @@ export function markPotentialOverlaps(result: StatementParseResult, overlaps: St
     if (!overlap || transaction.duplicateState) return transaction;
     marked += 1;
     const explanation = overlap.reason === "own-transfer"
-      ? `Możliwy transfer między własnymi kontami — druga strona występuje na koncie „${overlap.accountName}”.`
-      : `Możliwa ta sama operacja na koncie „${overlap.accountName}” — sprawdź przed importem.`;
+      ? `Możliwy transfer między własnymi kontami - druga strona występuje na koncie „${overlap.accountName}”.`
+      : `Możliwa ta sama operacja na koncie „${overlap.accountName}” - sprawdź przed importem.`;
     if (overlap.reason === "own-transfer") {
       const transferCandidates = matches
         .filter((item) => item.reason === "own-transfer")

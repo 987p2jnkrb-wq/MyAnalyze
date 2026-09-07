@@ -16,7 +16,7 @@ export default function AllocationOptionSelect({ label, placeholder, options, va
       <option value="">{placeholder}</option>
       {options.map((option) => {
         const displayedAmount = option.displayAmount ?? option.availableAmount;
-        return <option key={option.id} value={option.id}>{option.label}{displayedAmount !== undefined ? ` — ${amountLabel} ${formatCurrency(displayedAmount)}` : ""}</option>;
+        return <option key={option.id} value={option.id}>{option.label}{displayedAmount !== undefined ? ` - ${amountLabel} ${formatCurrency(displayedAmount)}` : ""}</option>;
       })}
     </select>
   </label>;

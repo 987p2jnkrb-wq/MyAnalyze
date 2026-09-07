@@ -42,7 +42,7 @@ describe("ModulesConfigTable", () => {
     expect(screen.getByRole("columnheader", { name: "Opis" })).not.toBeNull();
 
     fireEvent.click(screen.getByText("Manager Finansów"));
-    fireEvent.change(screen.getByRole("textbox", { name: "Nazwa — edycja wiersza manager" }), { target: { value: "Finanse domowe" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Nazwa - edycja wiersza manager" }), { target: { value: "Finanse domowe" } });
     fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany w wierszu" }));
 
     await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith(

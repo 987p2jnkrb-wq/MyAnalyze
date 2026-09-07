@@ -17,6 +17,7 @@ import { accountTypeLabel, displayedActualBalance, parseAccount } from "../../ut
 import { effectiveDebtPlanDebt, normalizeDebtPlan } from "./debtPlanModel";
 import { useToast } from "../../context/ToastContext";
 import { getAppCurrency } from "../../utils/appSettings";
+import { useUiText } from "../../i18n";
 import GoalsPage from "./Goals";
 
 const managerTabs = [
@@ -78,13 +79,15 @@ function mainTabFor(value: string | null): ManagerTab | null {
 }
 
 function EntryTabs({ label, value, onChange }: { label: string; value: EntryView; onChange: (value: EntryView) => void }) {
-  return <div role="tablist" aria-label={label} className="mb-3 inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-    {([ ["current", "Bieżące"], ["recurring", "Stałe"] ] as const).map(([id, text]) => <button key={id} type="button" role="tab" aria-selected={value === id} className={`rounded-md px-4 py-2 text-sm font-semibold ${value === id ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => onChange(id)}>{text}</button>)}
+  const t = useUiText();
+  return <div role="tablist" aria-label={t(label)} className="mb-3 inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+    {([ ["current", "Bieżące"], ["recurring", "Stałe"] ] as const).map(([id, text]) => <button key={id} type="button" role="tab" aria-selected={value === id} className={`rounded-md px-4 py-2 text-sm font-semibold ${value === id ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => onChange(id)}>{t(text)}</button>)}
   </div>;
 }
 
 const FinanceManagerPage: React.FC = () => {
   const { showToast } = useToast();
+  const t = useUiText();
   const [exporting, setExporting] = React.useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTabValue = searchParams.get("tab");
@@ -107,8 +110,8 @@ const FinanceManagerPage: React.FC = () => {
   const exportCsv = async () => {
     if (exporting) return;
     setExporting(true);
-    try { await downloadFinanceCsv(); showToast("Pobrano zbiorczy eksport CSV.", "success"); }
-    catch { showToast("Nie udało się przygotować eksportu CSV.", "error"); }
+    try { await downloadFinanceCsv(); showToast(t("Pobrano zbiorczy eksport CSV."), "success"); }
+    catch { showToast(t("Nie udało się przygotować eksportu CSV."), "error"); }
     finally { setExporting(false); }
   };
 
@@ -131,13 +134,13 @@ const FinanceManagerPage: React.FC = () => {
                   onClick={() => selectTab(tab.id)}
                 >
                   <Icon size={18} aria-hidden="true" />
-                  <span>{tab.label}</span>
+                  <span>{t(tab.label)}</span>
                 </button>
               );
             })}</div>
             <button type="button" disabled={exporting} className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50" onClick={() => void exportCsv()}>
               <Download size={18} aria-hidden="true" />
-              <span>{exporting ? "Eksportowanie…" : "Pobierz CSV"}</span>
+              <span>{t(exporting ? "Eksportowanie…" : "Pobierz CSV")}</span>
             </button>
           </div>
         </nav>

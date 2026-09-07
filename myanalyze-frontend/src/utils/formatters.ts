@@ -1,30 +1,32 @@
 import { isValidDateOnly } from "./validation";
-import { getAppCurrency, normalizeAppCurrency } from "./appSettings";
+import { getAppCurrency, getAppLocale, normalizeAppCurrency } from "./appSettings";
 
 export function formatCurrency(value: unknown, currency = getAppCurrency()): string {
   const number = typeof value === "number" ? value : Number(String(value).replace(",", "."));
-  if (!Number.isFinite(number)) return "—";
+  if (!Number.isFinite(number)) return "-";
+  const normalizedCurrency = normalizeAppCurrency(currency);
+  const locale = getAppLocale();
   try {
-    return number.toLocaleString("pl-PL", {
+    return number.toLocaleString(locale, {
       style: "currency",
-      currency: normalizeAppCurrency(currency),
+      currency: normalizedCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
   } catch {
-    return `${number.toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${normalizeAppCurrency(currency)}`;
+    return `${number.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${normalizedCurrency}`;
   }
 }
 
 export function formatDate(value: unknown): string {
   const normalized = String(value ?? "").trim();
-  if (!normalized || ["none", "null", "undefined"].includes(normalized.toLowerCase())) return "—";
+  if (!normalized || ["none", "null", "undefined"].includes(normalized.toLowerCase())) return "-";
   if (/^\d{4}-\d{2}-\d{2}/.test(normalized) && !isValidDateOnly(normalized.slice(0, 10))) return normalized;
   const date = new Date(normalized);
-  return Number.isNaN(date.getTime()) ? normalized : date.toLocaleDateString("pl-PL");
+  return Number.isNaN(date.getTime()) ? normalized : date.toLocaleDateString(getAppLocale());
 }
 
 export function formatPercentage(value: unknown): string {
   const number = typeof value === "number" ? value : Number(String(value).replace(",", "."));
-  return Number.isFinite(number) ? `${number.toLocaleString("pl-PL", { maximumFractionDigits: 2 })}%` : "—";
+  return Number.isFinite(number) ? `${number.toLocaleString(getAppLocale(), { maximumFractionDigits: 2 })}%` : "-";
 }

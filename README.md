@@ -9,13 +9,15 @@ MyAnalyze combines deliberate manual planning with bank statement imports. It ke
 ## Highlights
 
 - Plan-versus-actual tracking for income and expenses
-- CSV statement import through provider-specific adapters
+- CSV and text-based PDF statement import with review before saving
 - Shared normalization and classification pipeline across bank formats
 - Duplicate detection, including occurrence-aware fingerprints for repeated rows
 - User-confirmed internal transfer and credit-card payment linking
 - Credit cards, liabilities, loans, installments, and recurring operations
 - Monthly and pay-cycle summaries with historical snapshots
 - Configurable transaction labels, filters, reports, and CSV exports
+- Polish and English interface with a global PLN/EUR/USD presentation setting (no currency conversion)
+- User-defined percentage allocation of new funds between financial goals
 - Local SQLite storage with no cloud account or bank connection
 - Windows desktop packaging with Electron
 
@@ -35,7 +37,7 @@ This keeps the product understandable without turning it into an accounting syst
 
 The interface is shown with synthetic demo data. No real account identifiers or bank statements are included.
 
-| Finance manager | CSV import review |
+| Finance manager | Statement import review |
 | --- | --- |
 | ![Finance manager](screenshots/Manager.png) | ![CSV import review](screenshots/ImportCSV.png) |
 
@@ -47,7 +49,7 @@ The interface is shown with synthetic demo data. No real account identifiers or 
 
 ```mermaid
 flowchart LR
-    A[Bank CSV] --> B[Provider adapter]
+    A[Bank CSV or text PDF] --> B[Format extraction and provider adapter]
     B --> C[Normalized transaction]
     C --> D[General classification]
     D --> E[Duplicate detection]
@@ -125,7 +127,7 @@ The installer is generated in `dist/`. Build artifacts are intentionally exclude
 ## Data and privacy
 
 - Application data is stored locally in SQLite.
-- Imported statements are processed on the user's computer.
+- Imported statements are processed on the user's computer. PDF contents are used only for the preview and are not written to the activity log.
 - The application has no direct bank integration, cloud synchronization, or user accounts.
 - `dbmigration/myanalyz.template.sqlite` contains the schema and neutral defaults only.
 - Local databases, statements, exports, documents, logs, backups, and environment files are ignored by Git.
@@ -138,7 +140,7 @@ Detailed product and engineering documentation is maintained in Polish:
 
 - [Product scope](documentation/01-CEL-I-ZAKRES.md)
 - [Business rules](documentation/02-REGULY-BIZNESOWE.md)
-- [CSV import](documentation/03-IMPORT-CSV.md)
+- [CSV and PDF import](documentation/03-IMPORT-CSV.md)
 - [Architecture and development](documentation/04-ARCHITEKTURA-I-ROZWOJ.md)
 - [Product decisions and QA](documentation/05-DECYZJE-PRODUKTOWE-I-QA.md)
 - [Import data model](documentation/08-MODEL-DANYCH-IMPORTU.md)
@@ -146,7 +148,7 @@ Detailed product and engineering documentation is maintained in Polish:
 
 ## Project status
 
-Version 1.4.0 is a functional Windows desktop application. The current focus is stability, transparent financial rules, and a straightforward offline workflow.
+Version 1.5.0 is a functional Windows desktop application. It adds a Polish/English interface, a global presentation currency, custom goal allocation, and text-based PDF statement import. The current focus is stability, transparent financial rules, and a straightforward offline workflow.
 
 ## License
 

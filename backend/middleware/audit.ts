@@ -37,6 +37,7 @@ const FIELD_LABELS: Record<string, string> = {
   data_dodania: "datę", kapital: "kapitał", account_id: "konto", recurring_expense_id: "powiązany wydatek stały", payday_cycle_start_day: "dzień rozpoczęcia okresu",
   prog_1: "pierwszy próg", prog_2: "drugi próg", prog_3: "trzeci próg",
   alokacja_1: "alokację pierwszego progu", alokacja_2: "alokację drugiego progu", alokacja_3: "alokację trzeciego progu",
+  new_funds_strategy: "strategię podziału nowych środków",
   pewnosc: "pewność wpływu",
 };
 const MONEY_FIELDS = new Set(["saldo_dostepne", "saldo_wlasciwe", "kwota", "kwota_kapitalu", "kapital", "kwota_calkowita", "kwota_raty", "zadluzenie", "rata_miesieczna", "wolny_limit", "limit_kredytowy", "kwota_docelowa", "kwota_przypisana", "financial_floor", "daily_living_budget", "prog_1", "prog_2", "prog_3"]);
@@ -69,7 +70,7 @@ function formatMoney(value: unknown): string {
   const number = Number(value);
   return Number.isFinite(number)
     ? number.toLocaleString("pl-PL", { style: "currency", currency: "PLN" })
-    : String(value ?? "—");
+    : String(value ?? "-");
 }
 
 function recordName(record: AuditRecord | null): string {
@@ -86,7 +87,7 @@ function comparableValue(key: string, value: unknown): string {
 }
 
 function displayValue(key: string, value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
   if (BOOLEAN_FIELDS.has(key) && comparableValue(key, value) === "true") return "tak";
   if (BOOLEAN_FIELDS.has(key) && comparableValue(key, value) === "false") return "nie";
   if (key === "typ_depozytu") return VALUE_LABELS[String(value).trim().toLowerCase()] ?? String(value);

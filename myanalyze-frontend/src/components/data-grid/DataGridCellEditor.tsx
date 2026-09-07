@@ -29,7 +29,7 @@ export default function DataGridCellEditor<T>({
   const currentValue = editor.value(row);
   const disabled = saving || editor.disabled?.(row);
   const common = {
-    "aria-label": `${column.label} — edycja wiersza ${rowId}`,
+    "aria-label": `${column.label} - edycja wiersza ${rowId}`,
     autoFocus,
     disabled,
     className: "w-full min-w-0 rounded-md border border-blue-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100",
@@ -49,7 +49,7 @@ export default function DataGridCellEditor<T>({
   }
   if (editor.type === "checkbox") {
     return <input
-      aria-label={`${column.label} — edycja wiersza ${rowId}`}
+      aria-label={`${column.label} - edycja wiersza ${rowId}`}
       autoFocus={autoFocus}
       disabled={disabled}
       className="h-5 w-5 rounded border-slate-300"

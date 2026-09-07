@@ -3,8 +3,10 @@ import { AlertTriangle } from "lucide-react";
 import { incomeCertaintyLabel } from "../../../types/incomeCertainty";
 import { formatCurrency } from "../../../utils/formatters";
 import type { UpcomingOperationDay } from "../financeSummary";
+import { useUiText } from "../../../i18n";
 
 export default function UpcomingOperationsPanel({ days, range, onRangeChange }: { days: UpcomingOperationDay[]; range: "period" | "30-days"; onRangeChange: (range: "period" | "30-days") => void }) {
+  const t = useUiText();
   const [expanded, setExpanded] = React.useState(false);
   React.useEffect(() => setExpanded(false), [range]);
   const visibleDays = expanded ? days : days.slice(0, 5);
@@ -12,7 +14,7 @@ export default function UpcomingOperationsPanel({ days, range, onRangeChange }: 
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 id="upcoming-operations-title" className="text-base font-bold text-slate-900">Najbliższe operacje</h2><p className="mt-0.5 text-xs text-slate-500">Prognoza po dniu uwzględnia budżet bieżący bez tworzenia dodatkowych wydatków.</p></div>
       <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Zakres najbliższych operacji">
-        {([["period", "Do końca okresu"], ["30-days", "30 dni"]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={range === value} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${range === value ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`} onClick={() => onRangeChange(value)}>{label}</button>)}
+        {([["period", "Do końca okresu"], ["30-days", "30 dni"]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={range === value} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${range === value ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`} onClick={() => onRangeChange(value)}>{t(label)}</button>)}
       </div>
     </div>
     {visibleDays.length === 0 ? <p className="mt-4 rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">Brak zaplanowanych operacji w wybranym zakresie.</p> : <div className="mt-4 divide-y divide-slate-100">

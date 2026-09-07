@@ -8,10 +8,12 @@ import { formatCurrency } from "../../utils/formatters";
 import { ModuleIcon } from "./moduleIconCatalog";
 import { loadAppSettings } from "../../utils/appSettings";
 import HeaderClock from "../../components/HeaderClock";
+import { useUiText } from "../../i18n";
 
 const WelcomePage = () => {
   const [username] = useState(() => loadAppSettings().username);
   const { accounts, accountsLoaded, accountsError } = useAccountContext();
+  const t = useUiText();
   const [modules, setModules] = useState<ConfiguredWelcomeModule[]>([]);
   const [modulesLoading, setModulesLoading] = useState(true);
   const [modulesError, setModulesError] = useState(false);
@@ -42,7 +44,7 @@ const WelcomePage = () => {
       case "manager":
         if (!accountsLoaded) return <span className="mt-3 block text-sm font-semibold text-slate-500">Ładowanie salda…</span>;
         if (accountsError) return <span className="mt-3 block text-sm font-semibold text-amber-700">Saldo chwilowo niedostępne</span>;
-        return <span className="mt-3 block text-base font-semibold text-blue-700">Stan konta: {formatCurrency(accounts.filter((account) => account.active !== false).reduce((sum, account) => sum + Number(account.saldo_dostepne || 0), 0))}</span>;
+        return <span className="mt-3 block text-base font-semibold text-blue-700"><span className="mr-1 text-sm font-medium text-slate-500">{t("Stan konta:")}</span><span>{formatCurrency(accounts.filter((account) => account.active !== false).reduce((sum, account) => sum + Number(account.saldo_dostepne || 0), 0))}</span></span>;
       default:
         return null;
     }

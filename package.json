@@ -1,19 +1,8 @@
 {
   "name": "myanalyze",
-  "version": "1.4.0",
-  "private": true,
-  "description": "Offline-first personal finance desktop application built with Electron, React, TypeScript, Node.js, and SQLite.",
-  "author": "Mikołaj Dworak",
-  "keywords": [
-    "personal-finance",
-    "electron",
-    "react",
-    "typescript",
-    "sqlite"
-  ],
-  "engines": {
-    "node": ">=20"
-  },
+  "version": "1.5.0",
+  "description": "Aplikacja Electron do zarządzania finansami offline.",
+  "author": "Mikołaj Dworak <mikolajdworak@icloud.com>",
   "main": "electron-main.js",
   "scripts": {
     "start": "electron .",

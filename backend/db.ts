@@ -180,6 +180,10 @@ export const dbPromise = open({
   if (!debtPlanColumns.some((column) => column.name === 'active')) {
     await db.exec('ALTER TABLE debt_plans ADD COLUMN active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))');
   }
+  const goalSettingsColumns = await db.all<Array<{ name: string }>>('PRAGMA table_info(financial_goal_settings)');
+  if (goalSettingsColumns.length > 0 && !goalSettingsColumns.some((column) => column.name === 'new_funds_strategy')) {
+    await db.exec('ALTER TABLE financial_goal_settings ADD COLUMN new_funds_strategy TEXT');
+  }
   for (const table of ['przychody', 'wydatki'] as const) {
     const columns = await db.all<Array<{ name: string }>>(`PRAGMA table_info(${table})`);
     if (!columns.some((column) => column.name === 'import_status')) {

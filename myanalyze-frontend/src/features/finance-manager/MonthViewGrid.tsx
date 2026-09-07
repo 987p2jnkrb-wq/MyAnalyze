@@ -10,6 +10,7 @@ import { formatCurrency } from "../../utils/formatters";
 import { localDateKey, roundMoney } from "../../utils/validation";
 import { buildMonthSummary, currentMonthValue, shiftMonth, monthLabelKey, formatMonthLabel, type MonthLabelResult } from "./monthViewModel";
 import MonthTransactionsModal, { buildActualMonthBreakdown, buildPlannedMonthBreakdown, type MonthBreakdownKind, type MonthBreakdownMode } from "./MonthTransactionsModal";
+import { useAppPresentation, useUiText } from "../../i18n";
 
 type DetailMode = "expenses" | "incomes" | "balance";
 
@@ -43,6 +44,8 @@ function differenceClass(mode: DetailMode, row: MonthDetailRow): string {
 }
 
 export default function MonthViewGrid({ filteredIncomes, filteredExpenses, filteredRecurringIncomes, filteredRecurringExpenses }: { filteredIncomes?: ReturnType<typeof useIncomeContext>["incomes"]; filteredExpenses?: ReturnType<typeof useExpenseContext>["expenses"]; filteredRecurringIncomes?: ReturnType<typeof useIncomeStaleContext>["incomesStale"]; filteredRecurringExpenses?: ReturnType<typeof useExpenseStaleContext>["expensesStale"] }) {
+  const t = useUiText();
+  const { locale } = useAppPresentation();
   const { incomes: contextIncomes } = useIncomeContext();
   const { expenses: contextExpenses } = useExpenseContext();
   const incomes = filteredIncomes ?? contextIncomes;
@@ -54,6 +57,13 @@ export default function MonthViewGrid({ filteredIncomes, filteredExpenses, filte
   const [month, setMonth] = React.useState(currentMonthValue);
   const [detailMode, setDetailMode] = React.useState<DetailMode>("balance");
   const [transactionDetail, setTransactionDetail] = React.useState<{ kind: MonthBreakdownKind | "all"; mode: MonthBreakdownMode; labelKey?: string; label?: string } | null>(null);
+  const monthOptions = React.useMemo(() => Array.from({ length: 12 }, (_, index) => {
+    const label = new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2020, index, 1));
+    return { value: String(index + 1).padStart(2, "0"), label: label.charAt(0).toLocaleUpperCase(locale) + label.slice(1) };
+  }), [locale]);
+  const changeMonthPart = (year: string, monthNumber: string) => {
+    if (/^\d{4}$/.test(year) && /^(0[1-9]|1[0-2])$/.test(monthNumber)) setMonth(`${year}-${monthNumber}`);
+  };
   const summary = React.useMemo(() => buildMonthSummary({ month, incomes, expenses, recurringIncomes: incomesStale, recurringExpenses: expensesStale, allocationIncomes: contextIncomes, allocationExpenses: contextExpenses }), [expenses, expensesStale, incomes, incomesStale, month, contextIncomes, contextExpenses]);
   const transactionDetailRows = React.useMemo(() => {
     if (!transactionDetail) return [];
@@ -132,7 +142,12 @@ export default function MonthViewGrid({ filteredIncomes, filteredExpenses, filte
   return <div className="min-w-0 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <button type="button" aria-label="Poprzedni miesiąc" title="Poprzedni miesiąc" className="rounded-lg border border-slate-300 p-2 text-slate-700 hover:bg-slate-100" onClick={() => setMonth((current) => shiftMonth(current, -1))}><ChevronLeft size={20} aria-hidden="true" /></button>
-      <div className="flex min-w-0 flex-1 justify-center"><input aria-label="Wybierz miesiąc" type="month" value={month} onChange={(event) => event.target.value && setMonth(event.target.value)} className="rounded border border-slate-300 px-3 py-2 text-sm" /></div>
+      <div className="flex min-w-0 flex-1 justify-center gap-2">
+        <select aria-label={t("Miesiąc")} value={month.slice(5, 7)} onChange={(event) => changeMonthPart(month.slice(0, 4), event.target.value)} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+          {monthOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <input aria-label={t("Rok")} type="number" min={1900} max={2100} step={1} value={month.slice(0, 4)} onChange={(event) => changeMonthPart(event.target.value, month.slice(5, 7))} className="w-24 rounded border border-slate-300 px-3 py-2 text-sm" />
+      </div>
       <button type="button" aria-label="Następny miesiąc" title="Następny miesiąc" className="rounded-lg border border-slate-300 p-2 text-slate-700 hover:bg-slate-100" onClick={() => setMonth((current) => shiftMonth(current, 1))}><ChevronRight size={20} aria-hidden="true" /></button>
     </div>
 
@@ -141,7 +156,7 @@ export default function MonthViewGrid({ filteredIncomes, filteredExpenses, filte
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-700">{card.label} · wykonanie</span>
         <button type="button" aria-label={`Pokaż wykonane ${card.label.toLowerCase()}: ${formatCurrency(card.amount)}`} title="Pokaż transakcje składające się na tę kwotę" className="mt-1 block w-fit rounded text-2xl font-bold text-slate-900 underline decoration-dotted underline-offset-4 hover:decoration-solid focus-visible:outline-blue-600" onClick={event => openTransactionDetail(event, card.kind, "actual")}>{formatCurrency(card.amount)}</button>
         <span className="mt-1 block text-[11px] text-slate-600">Bez transferów własnych i ręcznie wyłączonych</span>
-        <button type="button" aria-label={`${card.label} · wykonanie — pokaż etykiety`} aria-pressed={detailMode === card.mode} className="mt-2 rounded text-xs font-semibold text-blue-800 hover:underline focus-visible:outline-blue-600" onClick={() => setDetailMode(card.mode)}>Pokaż etykiety →</button>
+        <button type="button" aria-label={`${card.label} · wykonanie - pokaż etykiety`} aria-pressed={detailMode === card.mode} className="mt-2 rounded text-xs font-semibold text-blue-800 hover:underline focus-visible:outline-blue-600" onClick={() => setDetailMode(card.mode)}>Pokaż etykiety →</button>
       </div>)}
       <button type="button" aria-pressed={detailMode === "balance"} className={`${cardClass("balance", "border-blue-200 bg-blue-50")} col-span-2 lg:col-span-1`} onClick={() => setDetailMode("balance")}> 
         <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">Wynik miesiąca · wykonanie</span><strong className={`mt-1 block text-2xl ${summary.actualBalance < 0 ? "text-red-700" : "text-blue-900"}`}>{formatCurrency(summary.actualBalance)}</strong><span className="block text-xs text-blue-700">Przychody wykonane − wydatki wykonane</span><span className="mt-2 block text-xs font-semibold text-blue-800">Pokaż wynik według etykiet →</span>
@@ -186,7 +201,7 @@ export default function MonthViewGrid({ filteredIncomes, filteredExpenses, filte
       kind={transactionDetail.kind}
       mode={transactionDetail.mode}
       rows={transactionDetailRows}
-      titleOverride={transactionDetail.label ? `${transactionDetail.label} — ${transactionDetail.mode === "outstanding" ? "nierozliczone" : "wykonane"} ${transactionDetail.kind === "all" ? "transakcje" : transactionDetail.kind === "income" ? "przychody" : "wydatki"} — ${formatMonthLabel(month)}` : undefined}
+      titleOverride={transactionDetail.label ? `${t(transactionDetail.label)} - ${t(transactionDetail.mode === "outstanding" ? "Nierozliczone" : "Wykonane").toLocaleLowerCase(locale)} ${t(transactionDetail.kind === "all" ? "transakcje" : transactionDetail.kind === "income" ? "przychody" : "wydatki")} - ${formatMonthLabel(month)}` : undefined}
       onClose={() => setTransactionDetail(null)}
     />}
   </div>;

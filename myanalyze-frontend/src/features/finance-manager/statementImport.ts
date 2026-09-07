@@ -153,13 +153,13 @@ export function parseStatementCsv(text: string, expectedCurrency = "PLN", option
     const sourceKey = repeatedRawRow ? `${rawSourceKey}\u001eoccurrence:${occurrence}` : rawSourceKey;
     const sameFileDuplicate = repeatedExternalId || repeatedRawRow;
     let note = suggestion.note;
-    if (bankStatus === "pending") note = appendNote(note, "Operacja oczekująca — możesz ją zapisać; kolejny wyciąg zaktualizuje jej status.");
-    if (bankStatus === "cancelled") note = appendNote(note, "Operacja anulowana lub odrzucona — domyślnie pominięta.");
+    if (bankStatus === "pending") note = appendNote(note, "Operacja oczekująca - możesz ją zapisać; kolejny wyciąg zaktualizuje jej status.");
+    if (bankStatus === "cancelled") note = appendNote(note, "Operacja anulowana lub odrzucona - domyślnie pominięta.");
     if (sameFileDuplicate) {
       warningCounts.sameFile += 1;
       note = appendNote(note, repeatedExternalId
-        ? "Ten sam unikalny identyfikator bankowy występuje w pliku więcej niż raz — kolejna instancja jest twardym duplikatem."
-        : "Taka sama operacja występuje w tym pliku więcej niż raz — pozostaje zaznaczona, bo może być prawdziwą kolejną płatnością.");
+        ? "Ten sam unikalny identyfikator bankowy występuje w pliku więcej niż raz - kolejna instancja jest twardym duplikatem."
+        : "Taka sama operacja występuje w tym pliku więcej niż raz - pozostaje zaznaczona, bo może być prawdziwą kolejną płatnością.");
     }
     if (suggestion.transferSuggested) warningCounts.suggested += 1;
 
@@ -201,7 +201,7 @@ export function parseStatementCsv(text: string, expectedCurrency = "PLN", option
   if (warningCounts.currency) warnings.push(`Pominięto ${warningCounts.currency} transakcji w walucie innej niż ${currencyExpected}.`);
   if (warningCounts.invalid) warnings.push(`Pominięto ${warningCounts.invalid} wierszy z nieprawidłową datą lub kwotą.`);
   if (warningCounts.zero) warnings.push(`Pominięto ${warningCounts.zero} transakcji z kwotą 0.`);
-  if (warningCounts.suggested) warnings.push(`Oznaczono ${warningCounts.suggested} możliwych transferów własnych. To tylko sugestie — operacje pozostają domyślnie uwzględnione w analizach.`);
+  if (warningCounts.suggested) warnings.push(`Oznaczono ${warningCounts.suggested} możliwych transferów własnych. To tylko sugestie - operacje pozostają domyślnie uwzględnione w analizach.`);
   if (warningCounts.sameFile) warnings.push(`Oznaczono ${warningCounts.sameFile} powtórzonych operacji znalezionych w tym samym pliku. Powtórzenia bez unikalnego ID pozostają zaznaczone.`);
   const skipped = warningCounts.invalid + warningCounts.currency + warningCounts.zero;
   return { source, transactions, rejected, skipped, warnings };

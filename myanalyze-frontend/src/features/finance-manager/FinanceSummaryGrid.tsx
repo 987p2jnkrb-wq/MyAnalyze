@@ -1,4 +1,5 @@
 import React from "react";
+import { useUiText } from "../../i18n";
 import { ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
 import RefreshButton from "../../components/RefreshButton";
 import ModuleBadge from "../../components/ModuleBadge";
@@ -24,6 +25,7 @@ import FinanceSummaryFilters, { type LabelFilterMode } from "./finance-summary/F
 import FinanceSummaryTabs from "./finance-summary/FinanceSummaryTabs";
 import PeriodNavigator from "./finance-summary/PeriodNavigator";
 import type { FinanceSummaryView, PeriodSnapshot, SummaryMetric } from "./finance-summary/types";
+import { getAppLocale } from "../../utils/appSettings";
 
 function normalizeSnapshot(value: Record<string, unknown>): PeriodSnapshot {
   return {
@@ -37,6 +39,7 @@ function normalizeSnapshot(value: Record<string, unknown>): PeriodSnapshot {
 export type { FinanceSummaryView } from "./finance-summary/types";
 
 export default function FinanceSummaryGrid({ view = "general", onViewChange, active = true }: { view?: FinanceSummaryView; onViewChange?: (view: FinanceSummaryView) => void; active?: boolean }) {
+  const t = useUiText();
   const { accounts, accountsLoaded, accountsError, fetchAccounts } = useAccountContext();
   const { incomes, incomesLoaded, incomesError, fetchIncomes } = useIncomeContext();
   const { expenses, expensesLoaded, expensesError, fetchExpenses } = useExpenseContext();
@@ -142,8 +145,8 @@ export default function FinanceSummaryGrid({ view = "general", onViewChange, act
     { id: "additional-income", label: "Dodatkowe wpływy", value: summary.additionalIncome, calculation: "Suma niezrealizowanych przychodów" },
     { id: "additional-expenses", label: "Dodatkowe wydatki", value: summary.additionalExpenses, calculation: "Suma niezrealizowanych wydatków" },
     { id: "available-with-credit", label: "Środki dostępne (+ karta)", value: summary.availableWithCredit, calculation: "Saldo dostępne wszystkich kont, gotówki i kart kredytowych" },
-    { id: "daily-budget", label: `${currency} / dzień (z kartą)`, value: summary.dailyBudget, calculation: `Środki dostępne podzielone przez ${summary.daysUntilPayday} dni do wypłaty` },
-  ], [currency, summary]);
+    { id: "daily-budget", label: `${currency} / ${t("dzień")} (${t("z kartą")})`, value: summary.dailyBudget, calculation: `Środki dostępne podzielone przez ${summary.daysUntilPayday} dni do wypłaty` },
+  ], [currency, summary, t]);
 
   const periodSummary = React.useMemo(() => buildPeriodSummary({
     accounts: filteredAccounts,
@@ -180,9 +183,9 @@ export default function FinanceSummaryGrid({ view = "general", onViewChange, act
     { id: "available-daily", label: "Dostępne saldo / dzień", value: periodSummary.availableDailyBudget, calculation: `Dostępne środki na wybrany dzień podzielone przez ${periodSummary.daysToSelectedDate} dni od dzisiaj` },
   ], [dailyBudgetAssessment, periodSummary]);
   const historicalRows = React.useMemo<SummaryMetric[]>(() => historicalSummary ? [
-    { id: "historical-planned-income", label: "Przychody — plan odtworzony", value: historicalSummary.plannedIncome, calculation: "Wpisy jednorazowe oraz reguły stałe aktywne w wybranym okresie" },
+    { id: "historical-planned-income", label: "Przychody - plan odtworzony", value: historicalSummary.plannedIncome, calculation: "Wpisy jednorazowe oraz reguły stałe aktywne w wybranym okresie" },
     { id: "historical-actual-income", label: "Przychody zrealizowane", value: historicalSummary.actualIncome, calculation: "Datowane transakcje oznaczone jako zrealizowane" },
-    { id: "historical-planned-expenses", label: "Wydatki — plan odtworzony", value: historicalSummary.plannedExpenses, calculation: "Wpisy jednorazowe oraz reguły stałe aktywne w wybranym okresie" },
+    { id: "historical-planned-expenses", label: "Wydatki - plan odtworzony", value: historicalSummary.plannedExpenses, calculation: "Wpisy jednorazowe oraz reguły stałe aktywne w wybranym okresie" },
     { id: "historical-actual-expenses", label: "Wydatki zrealizowane", value: historicalSummary.actualExpenses, calculation: "Datowane transakcje oznaczone jako zrealizowane" },
     { id: "historical-actual-balance", label: "Bilans zrealizowany", value: historicalSummary.actualBalance, calculation: "Zrealizowane przychody minus zrealizowane wydatki" },
   ] : [], [historicalSummary]);
@@ -231,7 +234,7 @@ export default function FinanceSummaryGrid({ view = "general", onViewChange, act
     }
   };
 
-  const paydayLabel = summary.nextPayday.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const paydayLabel = summary.nextPayday.toLocaleDateString(getAppLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 
   const minForecastDate = new Date();
   const minDateValue = `${minForecastDate.getFullYear()}-${String(minForecastDate.getMonth() + 1).padStart(2, "0")}-${String(minForecastDate.getDate()).padStart(2, "0")}`;
@@ -271,7 +274,7 @@ export default function FinanceSummaryGrid({ view = "general", onViewChange, act
       toolbar={activeView === "general"
         ? undefined
         : periodOffset === 0 ? <>
-          <ModuleBadge tone="neutral" size="sm">Wypłata: {paydayLabel} · {summary.daysUntilPayday} dni</ModuleBadge>
+          <ModuleBadge tone="neutral" size="sm">{t("Wypłata:")} {paydayLabel} · {summary.daysUntilPayday} {t(summary.daysUntilPayday === 1 ? "dzień" : "dni")}</ModuleBadge>
           <div className="flex items-center gap-1.5">
             <span className="mr-1 text-xs font-semibold text-slate-600">Prognoza na dzień</span>
             <button type="button" aria-label="Poprzedni dzień prognozy" title="Poprzedni dzień" disabled={selectedDate <= minDateValue} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => shiftSelectedDate(-1)}><ChevronLeft size={17} aria-hidden="true" /></button>
@@ -282,6 +285,6 @@ export default function FinanceSummaryGrid({ view = "general", onViewChange, act
     />}
     {activeView === "period" && periodOffset === 0 && <UpcomingOperationsPanel days={upcomingDays} range={upcomingRange} onRangeChange={setUpcomingRange} />}
     {activeView === "period" && periodOffset < 0 && <SnapshotStatePanel snapshot={displayedPeriodSnapshot} />}
-    {activeView === "period" && periodOffset === 0 && <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div><h2 className="font-bold text-slate-900">Historia okresu</h2><p className="mt-0.5 text-sm text-slate-500">{currentPeriodSnapshot ? `Stan tego okresu zapisano ${new Date(currentPeriodSnapshot.captured_at.replace(" ", "T")).toLocaleString("pl-PL")}. Możesz go zaktualizować.` : "Zapisz obecny stan okresu. Aplikacja nie wykonuje przy tym żadnych księgowań."}</p></div><button type="button" disabled={savingSnapshot} className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50" onClick={() => void savePeriodSnapshot()}><Save size={17} aria-hidden="true" />{savingSnapshot ? "Zapisywanie…" : currentPeriodSnapshot ? "Aktualizuj podsumowanie" : "Zapisz podsumowanie"}</button></section>}
+    {activeView === "period" && periodOffset === 0 && <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div><h2 className="font-bold text-slate-900">Historia okresu</h2><p className="mt-0.5 text-sm text-slate-500">{currentPeriodSnapshot ? `${t("Stan tego okresu zapisano")} ${new Date(currentPeriodSnapshot.captured_at.replace(" ", "T")).toLocaleString(getAppLocale())}. ${t("Możesz go zaktualizować.")}` : "Zapisz obecny stan okresu. Aplikacja nie wykonuje przy tym żadnych księgowań."}</p></div><button type="button" disabled={savingSnapshot} className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50" onClick={() => void savePeriodSnapshot()}><Save size={17} aria-hidden="true" />{savingSnapshot ? "Zapisywanie…" : currentPeriodSnapshot ? "Aktualizuj podsumowanie" : "Zapisz podsumowanie"}</button></section>}
   </div>;
 }
