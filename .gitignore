@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+.npm-cache/
+
+# Build output
+dist/
+backend-dist/
+myanalyze-frontend/build/
+coverage/
+release/
+*.exe
+*.blockmap
+*.7z
+
+# Electron and tooling caches
+.electron-cache/
+.electron-builder-cache/
+tools/
+
+# Local databases and financial data
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.bak
+!dbmigration/myanalyz.template.sqlite
+uploads/
+*.csv
+*.ofx
+*.mt940
+*.pdf
+*.xls
+*.xlsx
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+
+# Workspace-only maintenance files
+/BackupFIles.ps1
+/backupquery.txt
+
+# Logs and OS/editor files
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.tmp
+*.temp
+
+# Test artifacts
+cypress/screenshots/
+cypress/videos/
+test-results/

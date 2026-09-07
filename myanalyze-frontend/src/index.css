@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #1e1e1e;
+  background-color: #f4f4f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f5;
+  color: #1e1e1e;
+  scrollbar-gutter: stable;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e4ecf7 100%) !important;
+}
+
+.app-page-background {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e4ecf7 100%);
+}
+
+/* Motyw ciemny jest nakładką palety na istniejące wspólne komponenty. */
+html.dark body,
+html.dark #root,
+html.dark .app-page-background {
+  background: #0f172a !important;
+  color: #e2e8f0;
+}
+
+html.dark .bg-white { background-color: #111827; }
+html.dark .bg-slate-50,
+html.dark .bg-gray-50 { background-color: #0f172a; }
+html.dark .bg-slate-100,
+html.dark .bg-gray-100 { background-color: #1e293b; }
+html.dark .bg-slate-200,
+html.dark .bg-gray-200 { background-color: #334155; }
+html.dark .bg-blue-50 { background-color: #172554; }
+html.dark .bg-blue-100 { background-color: #1e3a8a; }
+html.dark .bg-red-50 { background-color: #450a0a; }
+html.dark .bg-red-100 { background-color: #7f1d1d; }
+html.dark .bg-green-100,
+html.dark .bg-emerald-50 { background-color: #064e3b; }
+html.dark .bg-orange-50,
+html.dark .bg-orange-100 { background-color: #431407; }
+html.dark .bg-violet-100 { background-color: #4c1d95; }
+html.dark .bg-yellow-100 { background-color: #422006; }
+
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-gray-800 { color: #f1f5f9; }
+html.dark .text-slate-700,
+html.dark .text-gray-700 { color: #e2e8f0; }
+html.dark .text-slate-600,
+html.dark .text-gray-600 { color: #cbd5e1; }
+html.dark .text-slate-500,
+html.dark .text-gray-500,
+html.dark .text-gray-400 { color: #94a3b8; }
+html.dark .text-blue-900,
+html.dark .text-blue-800,
+html.dark .text-blue-700 { color: #93c5fd; }
+html.dark .text-red-900,
+html.dark .text-red-800,
+html.dark .text-red-700 { color: #fca5a5; }
+html.dark .text-green-900,
+html.dark .text-green-800,
+html.dark .text-green-700,
+html.dark .text-emerald-900,
+html.dark .text-emerald-800,
+html.dark .text-emerald-700 { color: #86efac; }
+html.dark .text-orange-800,
+html.dark .text-orange-700 { color: #fdba74; }
+html.dark .text-violet-800 { color: #c4b5fd; }
+
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .border-gray-200,
+html.dark .border-gray-300 { border-color: #334155; }
+html.dark .border-blue-100,
+html.dark .border-blue-200 { border-color: #1e40af; }
+html.dark .border-red-200 { border-color: #991b1b; }
+html.dark .border-green-200,
+html.dark .border-emerald-200 { border-color: #047857; }
+html.dark .border-orange-200 { border-color: #c2410c; }
+html.dark .border-violet-200 { border-color: #7c3aed; }
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #111827;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #64748b; }
+html.dark td[style*="background-color"],
+html.dark th[style*="background-color"] { background-color: #111827 !important; }
+html.dark tr[aria-selected="true"] td { background-color: #172554 !important; }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Wspólne formatowanie wartości finansowych. */
+.money-value {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

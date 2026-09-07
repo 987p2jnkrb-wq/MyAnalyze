@@ -1,0 +1,34 @@
+{
+  "appId": "com.myanalyze.desktop",
+  "productName": "MyAnalyze",
+  "npmRebuild": false,
+  "asarUnpack": [
+    "node_modules/sqlite3/build/Release/**/*"
+  ],
+  "directories": {
+    "buildResources": "build",
+    "output": "dist"
+  },
+  "files": [
+    "myanalyze-frontend/build/**/*",
+    "backend-dist/**/*",
+    "electron-main.js",
+    "preload.js",
+    "desktop-config.json"
+  ],
+  "extraResources": [
+    {
+      "from": "dbmigration/myanalyz.template.sqlite",
+      "to": "db-template/myanalyz.sqlite"
+    }
+  ],
+  "win": {
+    "target": ["nsis"],
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

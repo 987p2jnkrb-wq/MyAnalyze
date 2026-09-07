@@ -1,0 +1,22 @@
+{
+  "appId": "com.myanalyze.desktop",
+  "productName": "myAnalyze",
+  "directories": {
+    "buildResources": "public",
+    "output": "dist"
+  },
+  "files": [
+    "build/**/*",
+    "main.cjs",
+    "package.json"
+  ],
+  "win": {
+    "target": ["nsis", "portable"],
+    "icon": "public/favicon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}
