@@ -31,6 +31,18 @@ Personal-finance data is simple to display but surprisingly easy to interpret in
 
 This keeps the product understandable without turning it into an accounting system.
 
+## Screenshots
+
+The interface is shown with synthetic demo data. No real account identifiers or bank statements are included.
+
+| Finance manager | CSV import review |
+| --- | --- |
+| ![Finance manager](screenshots/Manager.png) | ![CSV import review](screenshots/ImportCSV.png) |
+
+| Monthly summary | Financial goals |
+| --- | --- |
+| ![Monthly summary](screenshots/Summary.png) | ![Financial goals](screenshots/Goals.png) |
+
 ## Statement reconciliation
 
 ```mermaid
