@@ -60,3 +60,7 @@ Thumbs.db
 cypress/screenshots/
 cypress/videos/
 test-results/
+
+# Local review and documentation bundles
+/tmp/
+/documentation.zip

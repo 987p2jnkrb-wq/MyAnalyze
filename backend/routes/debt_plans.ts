@@ -89,7 +89,9 @@ async function normalizePayload(body: DebtPlanPayload) {
   const insurance = detailedCredit ? optionalNumber(body.ubezpieczenie) : null;
   const active = body.active === undefined ? null : body.active === true || Number(body.active) === 1 ? 1 : body.active === false || Number(body.active) === 0 ? 0 : Number.NaN;
   if (active !== null && active !== 0 && active !== 1) throw new Error("Nieprawidłowy status zobowiązania.");
-  const calculatedDebt = calculateDebt(typ, manualDebt, rataMiesieczna, iloscRat);
+  // Nieaktywny plan ratalny oznacza plan spłacony. Zachowujemy jego dane
+  // historyczne, ale pozostałe zadłużenie musi wynosić zero.
+  const calculatedDebt = installmentPlan && active === 0 ? 0 : calculateDebt(typ, manualDebt, rataMiesieczna, iloscRat);
 
   if (!produkt) throw new Error("Podaj nazwę produktu.");
   if (!allowedTypes.has(typ)) throw new Error("Wybierz prawidłowy typ zobowiązania.");
@@ -112,10 +114,10 @@ async function normalizePayload(body: DebtPlanPayload) {
     if (!repaymentAccount || !canLinkToCreditProduct(repaymentAccount.typ_depozytu)) throw new Error("Kontem spłacającym musi być zwykłe konto lub gotówka, nie wirtualny portfel.");
   }
   if (installmentPlan) {
-    if (calculatedDebt <= 0) throw new Error("Pozostała kwota planu musi być większa od zera.");
-    if (rataMiesieczna === null || rataMiesieczna <= 0) throw new Error("Rata planu musi być większa od zera.");
-    if (iloscRat === null || !Number.isInteger(iloscRat) || iloscRat <= 0) throw new Error("Podaj dodatnią liczbę pozostałych rat.");
-    if (rataMiesieczna > calculatedDebt) throw new Error("Rata nie może być większa od pozostałej kwoty planu.");
+    if (active !== 0 && calculatedDebt <= 0) throw new Error("Pozostała kwota planu musi być większa od zera.");
+    if (active !== 0 && (rataMiesieczna === null || rataMiesieczna <= 0)) throw new Error("Rata planu musi być większa od zera.");
+    if (active !== 0 && (iloscRat === null || !Number.isInteger(iloscRat) || iloscRat <= 0)) throw new Error("Podaj dodatnią liczbę pozostałych rat.");
+    if (active !== 0 && rataMiesieczna !== null && rataMiesieczna > calculatedDebt) throw new Error("Rata nie może być większa od pozostałej kwoty planu.");
     if (linkedCardAccountId === null || !Number.isInteger(linkedCardAccountId) || linkedCardAccountId <= 0) throw new Error("Wybierz kartę kredytową dla planu ratalnego.");
     const db = await dbPromise;
     const linkedCard = await db.get<{ typ_depozytu: string }>("SELECT typ_depozytu FROM konta WHERE id = ?", linkedCardAccountId);

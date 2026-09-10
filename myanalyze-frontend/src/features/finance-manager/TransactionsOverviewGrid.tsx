@@ -122,9 +122,17 @@ export default function TransactionsOverviewGrid() {
     });
     return pairs.sort((left, right) => right.id - left.id);
   }, [allRows, counterpartFor]);
+  const suggestionIncomes = React.useMemo(
+    () => incomeContext.incomes.filter((row) => isTransactionInDateRange(row, dateFrom, dateTo)),
+    [dateFrom, dateTo, incomeContext.incomes],
+  );
+  const suggestionExpenses = React.useMemo(
+    () => expenseContext.expenses.filter((row) => isTransactionInDateRange(row, dateFrom, dateTo)),
+    [dateFrom, dateTo, expenseContext.expenses],
+  );
   const suggestedPairs = React.useMemo(
-    () => buildSuggestedTransactionPairs(incomeContext.incomes, expenseContext.expenses, suggestionAccountRoles),
-    [expenseContext.expenses, incomeContext.incomes, suggestionAccountRoles],
+    () => buildSuggestedTransactionPairs(suggestionIncomes, suggestionExpenses, suggestionAccountRoles),
+    [suggestionAccountRoles, suggestionExpenses, suggestionIncomes],
   );
   const visibleSuggestedPairs = React.useMemo(
     () => suggestedPairs.filter((pair) => !dismissedSuggestionKeys.has(suggestedPairKey(pair))),

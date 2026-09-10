@@ -57,35 +57,30 @@ router.get("/", async (_req, res) => {
   }
 });
 
-router.put("/1", async (req, res) => {
+router.put("/1/planning", async (req, res) => {
   try {
-    const data = normalizeSettings(req.body);
+    const settings = normalizeSettings(req.body?.settings ?? {});
+    const strategy = normalizeNewFundsStrategy(req.body?.strategy ?? {});
     const db = await dbPromise;
     await db.run(
-      `UPDATE financial_goal_settings SET financial_floor = ?, daily_living_budget = ?, payday_cycle_start_day = ?, prog_1 = ?, prog_2 = ?, prog_3 = ?, alokacja_1 = ?, alokacja_2 = ?, alokacja_3 = ?, updated_at = datetime('now', 'localtime') WHERE id = 1`,
-      [data.financialFloor, data.dailyLivingBudget, data.paydayCycleStartDay, ...data.thresholds, ...data.allocations],
+      `UPDATE financial_goal_settings
+          SET financial_floor = ?, daily_living_budget = ?, payday_cycle_start_day = ?,
+              prog_1 = ?, prog_2 = ?, prog_3 = ?, alokacja_1 = ?, alokacja_2 = ?, alokacja_3 = ?,
+              new_funds_strategy = ?, updated_at = datetime('now', 'localtime')
+        WHERE id = 1`,
+      [
+        settings.financialFloor,
+        settings.dailyLivingBudget,
+        settings.paydayCycleStartDay,
+        ...settings.thresholds,
+        ...settings.allocations,
+        JSON.stringify(strategy),
+      ],
     );
     res.json(await db.get("SELECT * FROM financial_goal_settings WHERE id = 1"));
   } catch (error) {
     if (isInputValidationError(error)) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: "Nie udało się zapisać ustawień planowania." });
-  }
-});
-
-router.put("/1/new-funds-strategy", async (req, res) => {
-  try {
-    const strategy = normalizeNewFundsStrategy(req.body ?? {});
-    const db = await dbPromise;
-    await db.run(
-      `UPDATE financial_goal_settings
-          SET new_funds_strategy = ?, updated_at = datetime('now', 'localtime')
-        WHERE id = 1`,
-      JSON.stringify(strategy),
-    );
-    res.json(await db.get("SELECT * FROM financial_goal_settings WHERE id = 1"));
-  } catch (error) {
-    if (isInputValidationError(error)) return res.status(400).json({ error: error.message });
-    res.status(500).json({ error: "Nie udało się zapisać strategii nowych środków." });
   }
 });
 

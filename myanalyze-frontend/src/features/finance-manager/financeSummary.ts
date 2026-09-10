@@ -53,6 +53,7 @@ export interface PeriodSummaryValues {
   remainingDaysInPeriod: number;
   dailyLivingBudget: number;
   dailyLivingReserve: number;
+  remainingLivingReserveAfterSelectedDate: number;
   actualAfterLivingReserveAtSelectedDate: number;
   actualAfterLivingReserveDailyBudget: number;
   plannedActualAtSelectedDate: number;
@@ -343,7 +344,8 @@ export function buildPeriodSummary({
   const remainingDaysInPeriod = calendarDaysInclusive(today, period.end);
   const normalizedDailyLivingBudget = Math.max(0, Number(dailyLivingBudget) || 0);
   const dailyLivingReserve = roundMoney(normalizedDailyLivingBudget * remainingDaysInPeriod);
-  const actualAfterLivingReserveAtSelectedDate = roundMoney(actualAtSelectedDate - dailyLivingReserve);
+  const remainingLivingReserveAfterSelectedDate = roundMoney(normalizedDailyLivingBudget * Math.max(0, remainingDaysInPeriod - daysToSelectedDate));
+  const actualAfterLivingReserveAtSelectedDate = roundMoney(actualAtSelectedDate - normalizedDailyLivingBudget * daysToSelectedDate);
   const actualAfterLivingReserveDailyBudget = roundMoney(actualAfterLivingReserveAtSelectedDate / daysToSelectedDate);
   const plannedActualAtSelectedDate = roundMoney(actualAtSelectedDate - normalizedDailyLivingBudget * daysToSelectedDate);
   const incomeUntilPeriodEnd = totalOperations("income", period.end, true);
@@ -367,6 +369,7 @@ export function buildPeriodSummary({
     remainingDaysInPeriod,
     dailyLivingBudget: normalizedDailyLivingBudget,
     dailyLivingReserve,
+    remainingLivingReserveAfterSelectedDate,
     actualAfterLivingReserveAtSelectedDate,
     actualAfterLivingReserveDailyBudget,
     plannedActualAtSelectedDate,

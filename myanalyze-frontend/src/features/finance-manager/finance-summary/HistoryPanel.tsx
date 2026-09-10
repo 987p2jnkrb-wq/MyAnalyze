@@ -2,16 +2,11 @@ import React from "react";
 import { History } from "lucide-react";
 import ModuleBadge from "../../../components/ModuleBadge";
 import type { TransactionModel } from "../../../context/useTransactionResource";
-import { formatCurrency } from "../../../utils/formatters";
+import { formatCurrency, formatDate, formatDateTime } from "../../../utils/formatters";
 import MonthTransactionsModal, { buildActualMonthBreakdown, type MonthBreakdownKind } from "../MonthTransactionsModal";
 import { formatMonthLabel, type MonthlyActualSummary } from "../monthViewModel";
 import type { PeriodSnapshot } from "./types";
-
-function SnapshotDelta({ value, inverse = false }: { value: number; inverse?: boolean }) {
-  if (Math.abs(value) < 0.01) return <span className="text-xs text-slate-400">bez zmiany</span>;
-  const favorable = inverse ? value < 0 : value > 0;
-  return <span className={`text-xs font-semibold ${favorable ? "text-emerald-700" : "text-rose-700"}`}>{value > 0 ? "+" : "−"}{formatCurrency(Math.abs(value))} {value > 0 ? "↑" : "↓"}</span>;
-}
+import SnapshotMetrics from "./SnapshotMetrics";
 
 export default function HistoryPanel({ snapshots, monthlyActuals, incomes, expenses }: { snapshots: PeriodSnapshot[]; monthlyActuals: MonthlyActualSummary[]; incomes: TransactionModel[]; expenses: TransactionModel[] }) {
   const [detail, setDetail] = React.useState<{ month: string; kind: MonthBreakdownKind; scope: "flow" | "real" } | null>(null);
@@ -22,7 +17,7 @@ export default function HistoryPanel({ snapshots, monthlyActuals, incomes, expen
     {!snapshots.length ? <section className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm"><History className="mx-auto text-slate-400" size={28} aria-hidden="true" /><p className="mt-2 text-sm text-slate-500">Nie zapisano jeszcze żadnego podsumowania okresu. Możesz zrobić to ręcznie w zakładce Okres.</p></section> : snapshots.map((snapshot, index) => {
       const older = snapshots[index + 1];
       const floorSecured = snapshot.real_liquidity >= snapshot.financial_floor;
-      return <article key={snapshot.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-bold text-slate-900">{new Date(`${snapshot.period_start}T12:00:00`).toLocaleDateString("pl-PL")} – {new Date(`${snapshot.period_end}T12:00:00`).toLocaleDateString("pl-PL")}</h3><p className="mt-0.5 text-xs text-slate-500">Stan zapisany: {new Date(`${snapshot.captured_at.replace(" ", "T")}`).toLocaleString("pl-PL")}</p></div><ModuleBadge size="sm" tone={floorSecured ? "success" : "danger"}>{floorSecured ? "Podłoga zabezpieczona" : "Poniżej finansowej podłogi"}</ModuleBadge></div><div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">{[["Płynność przy zapisie", snapshot.real_liquidity, older ? snapshot.real_liquidity - older.real_liquidity : null, false], ["Dług konsumencki", snapshot.consumer_debt, older ? snapshot.consumer_debt - older.consumer_debt : null, true], ["Kredyt hipoteczny", snapshot.mortgage_debt, older ? snapshot.mortgage_debt - older.mortgage_debt : null, true], ["Środki w celach", snapshot.goals_allocated, older ? snapshot.goals_allocated - older.goals_allocated : null, false]].map(([label, value, delta, inverse]) => <div key={String(label)} className="rounded-lg bg-slate-50 p-3"><div className="text-xs font-semibold text-slate-500">{String(label)}</div><div className="mt-1 font-bold text-slate-900">{formatCurrency(Number(value))}</div>{delta !== null && <div className="mt-1"><SnapshotDelta value={Number(delta)} inverse={Boolean(inverse)} /></div>}</div>)}</div></article>;
+      return <article key={snapshot.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-bold text-slate-900">{formatDate(`${snapshot.period_start}T12:00:00`)} – {formatDate(`${snapshot.period_end}T12:00:00`)}</h3><p className="mt-0.5 text-xs text-slate-500">Stan zapisany: {formatDateTime(snapshot.captured_at)}</p></div><ModuleBadge size="sm" tone={floorSecured ? "success" : "danger"}>{floorSecured ? "Podłoga zabezpieczona" : "Poniżej finansowej podłogi"}</ModuleBadge></div><SnapshotMetrics snapshot={snapshot} older={older} className="mt-4" /></article>;
     })}
     {detail && <MonthTransactionsModal open month={detail.month} kind={detail.kind} mode="actual" rows={detailRows} titleOverride={detail.scope === "flow" ? `Przepływy · ${detail.kind === "income" ? "wpływy" : "wypływy"} - ${formatMonthLabel(detail.month)}` : undefined} onClose={() => setDetail(null)} />}
   </div>;

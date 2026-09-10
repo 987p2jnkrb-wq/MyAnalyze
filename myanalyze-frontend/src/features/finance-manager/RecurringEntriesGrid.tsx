@@ -1,10 +1,10 @@
 import React from "react";
-import Button from "../../components/Button";
 import { Plus, Trash2 } from "lucide-react";
 import DataGrid, { type DataGridColumn } from "../../components/DataGrid";
 import MoneyInput from "../../components/MoneyInput";
 import IconButton from "../../components/IconButton";
 import Modal from "../../components/Modal";
+import ModalFormActions from "../../components/ModalFormActions";
 import ConfirmModal from "../../components/ConfirmModal";
 import ModuleBadge, { type ModuleBadgeTone } from "../../components/ModuleBadge";
 import { useIncomeStaleContext } from "../../context/IncomeStaleContext";
@@ -188,7 +188,7 @@ function RecurringEntriesGrid({ kind, rows, onAdd, onEdit, onDelete, onRefresh, 
         onClose={() => setEditor(null)}
         title={editor?.mode === "edit" ? `Edytuj: ${label}` : `Dodaj: ${label}`}
         size="lg"
-        footer={editor && <div className="flex justify-end gap-2"><Button tone="neutral" onClick={() => setEditor(null)}>Anuluj</Button><Button type="submit" form="recurring-entry-form" tone="primary" disabled={saving}>{saving ? "Zapisywanie…" : editor.mode === "edit" ? "Zapisz zmiany" : "Dodaj"}</Button></div>}
+        footer={editor && <ModalFormActions saving={saving} onCancel={() => setEditor(null)} form="recurring-entry-form" submitLabel={editor.mode === "edit" ? "Zapisz zmiany" : "Dodaj"} />}
       >
         {editor && <RecurringEntryForm key={`${editor.mode}-${editor.row?.id ?? "new"}`} customTypes={activeCustomTypes} row={editor.row} onSave={save} />}
       </Modal>

@@ -151,10 +151,10 @@ const FinanceManagerPage: React.FC = () => {
             <section id="manager-panel-transactions" role="tabpanel" hidden={activeTab !== "transactions"} className="min-w-0" aria-label="Transakcje">{activeTab === "transactions" && <TransactionsOverviewGrid />}</section>
             <section id="manager-panel-incomes" role="tabpanel" hidden={activeTab !== "incomes"} className="min-w-0" aria-label="Przychody">{activeTab === "incomes" && <><EntryTabs label="Rodzaj przychodów" value={entryView} onChange={selectView} />{entryView === "current" ? <IncomeGrid /> : <RecurringIncomeGrid />}</>}</section>
             <section id="manager-panel-expenses" role="tabpanel" hidden={activeTab !== "expenses"} className="min-w-0" aria-label="Wydatki">{activeTab === "expenses" && <><EntryTabs label="Rodzaj wydatków" value={entryView} onChange={selectView} />{entryView === "current" ? <ExpenseGrid /> : <RecurringExpenseGrid />}</>}</section>
-            <section id="manager-panel-debt-plans" role="tabpanel" hidden={activeTab !== "debt-plans"} className="min-w-0" aria-label="Zobowiązania"><DebtPlansGrid active={activeTab === "debt-plans"} /></section>
-            <section id="manager-panel-credits" role="tabpanel" hidden={activeTab !== "credits"} className="min-w-0" aria-label="Kredyty"><LoansPage embedded active={activeTab === "credits"} /></section>
-            <section id="manager-panel-goals" role="tabpanel" hidden={activeTab !== "goals"} className="min-w-0" aria-label="Cele"><GoalsPage active={activeTab === "goals"} /></section>
-            <section id="manager-panel-summary" role="tabpanel" hidden={activeTab !== "summary"} className="min-w-0" aria-label="Podsumowanie"><FinanceSummaryGrid view={summaryView} onViewChange={selectView} active={activeTab === "summary"} /></section>
+            <section id="manager-panel-debt-plans" role="tabpanel" hidden={activeTab !== "debt-plans"} className="min-w-0" aria-label="Zobowiązania">{activeTab === "debt-plans" && <DebtPlansGrid />}</section>
+            <section id="manager-panel-credits" role="tabpanel" hidden={activeTab !== "credits"} className="min-w-0" aria-label="Kredyty">{activeTab === "credits" && <LoansPage embedded />}</section>
+            <section id="manager-panel-goals" role="tabpanel" hidden={activeTab !== "goals"} className="min-w-0" aria-label="Cele">{activeTab === "goals" && <GoalsPage />}</section>
+            <section id="manager-panel-summary" role="tabpanel" hidden={activeTab !== "summary"} className="min-w-0" aria-label="Podsumowanie">{activeTab === "summary" && <FinanceSummaryGrid view={summaryView} onViewChange={selectView} />}</section>
           </div>
         </DataGridSelectionScope>
       </div>

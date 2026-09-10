@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import type { Account } from "../types/account";
 import Modal from "./Modal";
+import ModalFormActions from "./ModalFormActions";
 import AllocationOptionSelect from "./AllocationOptionSelect";
 import { accountAllocationOptions } from "./accountAllocationOptions";
-import Button from "./Button";
 
 interface RealizeModalProps {
   open: boolean;
@@ -46,13 +46,9 @@ const RealizeModal: React.FC<RealizeModalProps> = ({ open, accounts, onClose, on
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={() => { if (!saving) onClose(); }} title={title} size="sm">
+    <Modal open={open} onClose={() => { if (!saving) onClose(); }} title={title} size="sm" footer={<ModalFormActions saving={saving} savingLabel="Realizowanie…" onCancel={onClose} onSubmit={() => void handleSelect()} submitLabel="Zrealizuj" />}>
         <AllocationOptionSelect autoFocus label="Konto" placeholder="Wybierz konto" options={accountAllocationOptions(accounts, false)} value={selectedId} onChange={(value) => { setSelectedId(value); setError(""); }} />
         {error && <div className="text-red-600 mb-2 text-center font-semibold">{error}</div>}
-        <div className="flex flex-row justify-end gap-3 mt-6">
-          <Button tone="neutral" disabled={saving} onClick={onClose}>Anuluj</Button>
-          <Button tone="primary" disabled={saving} onClick={() => void handleSelect()}>{saving ? "Realizowanie…" : "Zrealizuj"}</Button>
-        </div>
     </Modal>
   );
 };

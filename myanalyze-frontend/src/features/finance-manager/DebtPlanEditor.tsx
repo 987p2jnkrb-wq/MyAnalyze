@@ -3,6 +3,7 @@ import axios from "axios";
 import MoneyInput from "../../components/MoneyInput";
 import PercentageInput from "../../components/PercentageInput";
 import Modal from "../../components/Modal";
+import ModalFormActions from "../../components/ModalFormActions";
 import { useExpenseStaleContext } from "../../context/ExpenseStaleContext";
 import { useAccountContext } from "../../context/useAccountContext";
 import { useToast } from "../../context/ToastContext";
@@ -68,7 +69,7 @@ export function toDebtPlanPayload(draft: FormDraft | DebtPlan): DebtPlanPayload 
   return {
     produkt: draft.produkt.trim(),
     typ: draft.typ,
-    zadluzenie: calculateDebt(draft.typ, Number(draft.zadluzenie), installment, installmentCount),
+    zadluzenie: installmentPlan && draft.active === false ? 0 : calculateDebt(draft.typ, Number(draft.zadluzenie), installment, installmentCount),
     rata_miesieczna: card ? null : installment,
     ilosc_rat: card ? null : installmentCount,
     wolny_limit: card ? optionalNumber(draft.wolny_limit) : null,
@@ -101,8 +102,8 @@ export function validateDebtPlanPayload(payload: DebtPlanPayload): string | null
     if (value != null && (!Number.isFinite(value) || value < 0)) return "Kwoty nie mogą być ujemne.";
   }
   if (isCreditCardType(payload.typ) && (payload.wolny_limit === null || payload.limit_kredytowy === null)) return "Podaj wolny limit i limit karty.";
-  if (isInstallmentPlanType(payload.typ) && (!payload.linked_card_account_id || payload.zadluzenie <= 0 || !payload.rata_miesieczna || payload.rata_miesieczna <= 0 || !payload.ilosc_rat || payload.ilosc_rat <= 0)) return "Uzupełnij kartę, pozostałą kwotę, ratę i liczbę rat planu.";
-  if (isInstallmentPlanType(payload.typ) && Number(payload.rata_miesieczna) > payload.zadluzenie) return "Rata nie może być większa od pozostałej kwoty planu.";
+  if (isInstallmentPlanType(payload.typ) && (!payload.linked_card_account_id || (payload.active !== false && (payload.zadluzenie <= 0 || !payload.rata_miesieczna || payload.rata_miesieczna <= 0 || !payload.ilosc_rat || payload.ilosc_rat <= 0)))) return "Uzupełnij kartę, pozostałą kwotę, ratę i liczbę rat planu.";
+  if (isInstallmentPlanType(payload.typ) && payload.active !== false && Number(payload.rata_miesieczna) > payload.zadluzenie) return "Rata nie może być większa od pozostałej kwoty planu.";
   if (Number(payload.one_time_fee || 0) < 0) return "Opłata jednorazowa nie może być ujemna.";
   if (payload.dzien_miesiaca !== undefined) {
     const dayError = validateIntegerRange(payload.dzien_miesiaca, "Dzień płatności", 1, 31);
@@ -259,6 +260,5 @@ export function DebtPlanEditModal({ plan, onClose, onSaved }: { plan: DebtPlan |
     onClose();
     showToast("Zapisano produkt.", "success");
   };
-  return <Modal open={plan !== null} onClose={() => { if (!saving) onClose(); }} title="Edytuj produkt" description="Te same pola są dostępne niezależnie od miejsca otwarcia." size="lg" footer={<div className="flex justify-end gap-2"><button type="button" disabled={saving} className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold disabled:opacity-50" onClick={onClose}>Anuluj</button><button type="submit" form="shared-debt-plan-edit-form" disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{saving ? "Zapisywanie…" : "Zapisz zmiany"}</button></div>}>{plan && <DebtPlanForm key={plan.id} initial={plan} formId="shared-debt-plan-edit-form" recurringExpenses={recurringExpenses} creditCards={creditCards} repaymentAccounts={repaymentAccounts} onSave={save} onSavingChange={setSaving} />}</Modal>;
+  return <Modal open={plan !== null} onClose={() => { if (!saving) onClose(); }} title="Edytuj produkt" description="Te same pola są dostępne niezależnie od miejsca otwarcia." size="lg" footer={<ModalFormActions saving={saving} onCancel={onClose} form="shared-debt-plan-edit-form" submitLabel="Zapisz zmiany" />}>{plan && <DebtPlanForm key={plan.id} initial={plan} formId="shared-debt-plan-edit-form" recurringExpenses={recurringExpenses} creditCards={creditCards} repaymentAccounts={repaymentAccounts} onSave={save} onSavingChange={setSaving} />}</Modal>;
 }
-

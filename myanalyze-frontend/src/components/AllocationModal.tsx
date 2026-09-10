@@ -1,12 +1,12 @@
 import React from "react";
 import Modal from "./Modal";
+import ModalFormActions from "./ModalFormActions";
 import MoneyInput from "./MoneyInput";
 import { formatCurrency } from "../utils/formatters";
 import { parseRequiredNumber } from "../utils/numbers";
 import AllocationOptionSelect from "./AllocationOptionSelect";
 import type { AllocationOption } from "./accountAllocationOptions";
 import { isValidDateOnly, localDateKey } from "../utils/validation";
-import Button from "./Button";
 
 interface AllocationModalProps {
   open: boolean;
@@ -65,8 +65,8 @@ export default function AllocationModal({ open, title, description, sourceLabel,
   };
 
   return (
-    <Modal open={open} onClose={() => { if (!saving) onClose(); }} title={title} description={description} size="sm">
-      <form className="space-y-4" onSubmit={(event) => void submit(event)}>
+    <Modal open={open} onClose={() => { if (!saving) onClose(); }} title={title} description={description} size="sm" footer={<ModalFormActions saving={saving} disabled={options.length === 0} onCancel={onClose} form="allocation-form" submitLabel={submitLabel} />}>
+      <form id="allocation-form" className="space-y-4" onSubmit={(event) => void submit(event)}>
         <AllocationOptionSelect autoFocus label={sourceLabel} placeholder={sourcePlaceholder} options={options} value={sourceId} amountLabel={availabilityLabel} onChange={(value) => { setSourceId(value); setError(""); }} />
         <label className="block">
           <span className="mb-1 flex items-center justify-between gap-3 text-sm font-semibold text-slate-800"><span>Kwota realizacji</span><span className="font-normal text-slate-500">maks. {formatCurrency(effectiveMaximum)}</span></span>
@@ -78,10 +78,6 @@ export default function AllocationModal({ open, title, description, sourceLabel,
         </label>}
         {options.length === 0 && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Brak dostępnych pozycji do rozliczenia.</p>}
         {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
-          <Button tone="neutral" disabled={saving} onClick={onClose}>Anuluj</Button>
-          <Button type="submit" tone="primary" disabled={saving || options.length === 0}>{saving ? "Zapisywanie…" : submitLabel}</Button>
-        </div>
       </form>
     </Modal>
   );

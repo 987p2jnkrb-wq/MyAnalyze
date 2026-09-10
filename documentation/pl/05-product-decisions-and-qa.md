@@ -6,7 +6,7 @@ Ten dokument rozróżnia błąd od świadomie wybranego zachowania. Zmiana poni�
 
 | Obszar | Decyzja |
 | --- | --- |
-| Import bankowy | Jest ręcznym importem CSV, nie połączeniem z bankiem. |
+| Import bankowy | Jest ręcznym importem CSV/PDF, nie połączeniem z bankiem. |
 | Saldo po imporcie | Importowane operacje nie zmieniają salda depozytu, ponieważ saldo bankowe już je zawiera. |
 | Status importu | Zaimportowane pozycje są zrealizowane. |
 | Dopasowanie wpisu stałego | Sugestia wykorzystuje kierunek, kwotę i aktywny miesiąc; zgodność nazwy nie jest wymagana. |
@@ -18,11 +18,15 @@ Ten dokument rozróżnia błąd od świadomie wybranego zachowania. Zmiana poni�
 | Stałe przychody | Aplikacja przygotowuje najbliższy wpis; usunięte wystąpienie nie odtwarza się w tym samym miesiącu. |
 | Podsumowanie ogólne | Sumuje wszystkie skonfigurowane wpisy stałe, niezależnie od zakresu ich dat. |
 | Podsumowanie okresowe | Respektuje daty obowiązywania i konfigurowalny dzień początku okresu; historycznie rozdziela plan odtworzony od realizacji. |
+| Podsumowania nad gridem | Badge’e `Dostępne`, `Rzeczywiste`, `Zadłużenie` i `Raty` pokazują podsumowanie aktywnych pozycji. Dotyczy to również widoku, w którym grid ma filtr `Wszystkie`; rekordy nieaktywne są historyczne/wyzerowane i nie powinny sztucznie wpływać na bieżące sumy. |
 | Dzień wypłaty | Początek cyklu jest ustawiany w Ustawieniach planowania (domyślnie 10., zakres 1–31); koniec okresu wylicza się automatycznie. |
 | Logi | Usunięcie pojedynczego logu oraz zaznaczonych logów wymaga potwierdzenia. Nie ma akcji czyszczącej automatycznie wszystkie widoczne wpisy. |
 | Waluta | Jedyną dostępną walutą jest obecnie PLN. Prezentacja kwot, formularze i eksport korzystają jednak z jednej wartości zapisanej w Konfiguracji, bez powielania symbolu waluty w modułach. |
 | Karta kredytowa | Limit zmienia się wyłącznie ręcznie; przelew lub wydatek zmienia wolny limit/saldo dostępne, nie limit karty. |
 | Edycja produktu kredytowego | Ten sam popup i te same pola są używane w Depozytach, Zobowiązaniach i Kredytach. |
+| Zobowiązania i Kredyty | Pozostają osobnymi modułami/zakładkami. Ich podobieństwo funkcjonalne nie jest obecnie powodem do łączenia widoków. |
+| Gęstość akcji w gridach | Aplikacja jest mała, dlatego część akcji pozostaje dostępna bezpośrednio jako ikony lub przyciski w gridzie. Nie upraszczamy tego dodatkową warstwą menu bez konkretnego problemu użyteczności. |
+| Potwierdzenia operacji | Komunikaty potwierdzające mogą pozostać krótkie i bez nazwy rekordu. Użytkownik wykonuje akcję bezpośrednio w kontekście wybranego wiersza, a rozbudowanie każdego potwierdzenia nie jest obecnie potrzebne. |
 | Stały przychód | Tylko nowo generowane bieżące wpływy otrzymują typ transakcji `Zasilenie`; istniejące dane nie są masowo synchronizowane. |
 | Saldo zwykłego depozytu | Użytkownik edytuje saldo dostępne, a nieaktywne saldo rzeczywiste ma mu odpowiadać. |
 | Wirtualny portfel | Działa jak zwykłe konto, ale nie może być kontem spłacającym ani źródłem spłaty produktu kredytowego. |
@@ -53,7 +57,7 @@ Za błąd krytyczny lub wysoki należy uznać w szczególności:
 - możliwość podpięcia wirtualnego portfela pod produkt kredytowy;
 - edycję zrealizowanego przychodu lub wydatku;
 - import duplikatów przy ponownym wczytaniu tego samego wyciągu;
-- zmianę salda depozytu przez import historii CSV;
+- zmianę salda depozytu przez import historii CSV/PDF;
 - znikanie istniejących rekordów wskutek ukrytego filtra lub błędnej paginacji.
 
 ## Co wymaga ostrożności podczas audytu

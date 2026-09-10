@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { CircleHelp } from "lucide-react";
+import { CircleAlert, CircleHelp } from "lucide-react";
 import ModuleBadge, { type ModuleBadgeTone } from "./ModuleBadge";
 import { useUiText } from "../i18n";
 import { UI_LAYERS } from "./uiLayers";
@@ -10,16 +10,19 @@ export default function HelpBadge({
   children,
   tone = "neutral",
   size = "sm",
+  icon = "help",
 }: {
   help: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   tone?: ModuleBadgeTone;
   size?: "sm" | "md";
+  icon?: "help" | "warning";
 }) {
   const tooltipId = React.useId();
   const t = useUiText();
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = React.useState(false);
+  const hasContent = children !== undefined && children !== null && children !== "";
   const [position, setPosition] = React.useState({ left: 0, top: 0, below: false });
   const updatePosition = React.useCallback(() => {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -49,13 +52,14 @@ export default function HelpBadge({
         ref={buttonRef}
         type="button"
         aria-describedby={tooltipId}
+        aria-label={!hasContent ? t(help) : undefined}
         className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
       >
-        <ModuleBadge tone={tone} size={size}>{typeof children === "string" ? t(children) : children}<CircleHelp className="ml-1 inline" size={14} aria-hidden="true" /></ModuleBadge>
+        <ModuleBadge tone={tone} size={size}>{typeof children === "string" ? t(children) : children}{icon === "warning" ? <CircleAlert className={hasContent ? "ml-1 inline" : "inline"} size={14} aria-hidden="true" /> : <CircleHelp className={hasContent ? "ml-1 inline" : "inline"} size={14} aria-hidden="true" />}</ModuleBadge>
       </button>
       {open && createPortal(<span
         id={tooltipId}

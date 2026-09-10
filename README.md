@@ -136,14 +136,10 @@ Never attach real financial data to a public issue or pull request.
 
 ## Documentation
 
-Detailed product and engineering documentation is maintained in Polish:
+Detailed product and engineering documentation is available in two languages:
 
-- [Product scope](documentation/01-CEL-I-ZAKRES.md)
-- [Business rules](documentation/02-REGULY-BIZNESOWE.md)
-- [CSV and PDF import](documentation/03-IMPORT-CSV.md)
-- [Architecture and development](documentation/04-ARCHITEKTURA-I-ROZWOJ.md)
-- [Product decisions and QA](documentation/05-DECYZJE-PRODUKTOWE-I-QA.md)
-- [Import data model](documentation/08-MODEL-DANYCH-IMPORTU.md)
+- [English documentation](documentation/en/README.md)
+- [Dokumentacja po polsku](documentation/pl/README.md)
 - [Run and build commands](Instrukcja/KOMENDY-URUCHAMIANIE-I-BUILD.md)
 
 ## Project status

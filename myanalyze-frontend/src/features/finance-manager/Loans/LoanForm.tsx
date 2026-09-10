@@ -12,7 +12,7 @@ import { parseRequiredNumber } from "../../../utils/numbers";
 import { useExpenseStaleContext } from "../../../context/ExpenseStaleContext";
 import RecurringExpenseLinkFields from "../RecurringExpenseLinkFields";
 
-interface LoanFormProps { loan?: Loan; onSuccess: () => void; onCancel?: () => void; }
+interface LoanFormProps { loan?: Loan; formId?: string; onSuccess: () => void; onSavingChange?: (saving: boolean) => void; }
 type LoanFormFieldKey = {
   [K in keyof EditableLoan]-?: Exclude<EditableLoan[K], null | undefined> extends string | number ? K : never;
 }[keyof EditableLoan];
@@ -60,7 +60,7 @@ function withFinancialSuggestions(loan: EditableLoan, overwriteCalculatedDebt: b
   };
 }
 
-const LoanForm: React.FC<LoanFormProps> = ({ loan, onSuccess, onCancel }) => {
+const LoanForm: React.FC<LoanFormProps> = ({ loan, formId = "loan-form", onSuccess, onSavingChange }) => {
   const [draft, setDraft] = useState<EditableLoan>(() => loan ? { ...loan, data_dodania: loan.data_dodania ?? today() } : initialDraft);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -161,7 +161,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ loan, onSuccess, onCancel }) => {
     event.preventDefault();
     const validationError = validateLoan(draft);
     if (validationError) { setError(validationError); return; }
-    setLoading(true); setError("");
+    setLoading(true); onSavingChange?.(true); setError("");
     try {
       const recurringSelection = includeRecurringExpense
         ? recurringExpenseChoice === "create"
@@ -175,10 +175,10 @@ const LoanForm: React.FC<LoanFormProps> = ({ loan, onSuccess, onCancel }) => {
     } catch (caught: unknown) {
       const message = axios.isAxiosError<{ error?: string }>(caught) ? caught.response?.data?.error : undefined;
       setError(message || `Nie udało się ${loan ? "zapisać" : "dodać"} kredytu.`);
-    } finally { setLoading(false); }
+    } finally { setLoading(false); onSavingChange?.(false); }
   };
 
-  return <form onSubmit={handleSubmit} className="space-y-6">
+  return <form id={formId} onSubmit={handleSubmit} className="space-y-6">
     <fieldset>
       <legend className="mb-3 text-base font-bold text-slate-900">Podstawowe dane</legend>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -223,10 +223,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ loan, onSuccess, onCancel }) => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{renderFields(costFields)}</div>
     </fieldset>
     {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-    <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
-      {onCancel && <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50" onClick={onCancel}>Anuluj</button>}
-      <button type="submit" className="rounded-lg bg-blue-600 px-5 py-2 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60" disabled={loading}>{loading ? "Zapisywanie…" : loan ? "Zapisz zmiany" : "Dodaj kredyt"}</button>
-    </div>
+    <button type="submit" className="sr-only" disabled={loading}>Zapisz</button>
   </form>;
 };
 

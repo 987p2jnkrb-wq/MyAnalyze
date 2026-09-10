@@ -25,4 +25,4 @@ Wydanie 1.1 domyka aplikację jako prosty, lokalny manager finansów osobistych.
 - karta kredytowa, plan ratalny, kredyt, stały wydatek i depozyt pozostają synchronizowane bez podwójnego liczenia zadłużenia;
 - instalator zawiera czysty szablon bazy i nie nadpisuje istniejących danych użytkownika.
 
-Szczegółowe reguły zachowania opisują [Reguły biznesowe](02-REGULY-BIZNESOWE.md), a kryteria wydania [Decyzje produktowe i QA](05-DECYZJE-PRODUKTOWE-I-QA.md).
+Szczegółowe reguły zachowania opisują [Reguły biznesowe](02-business-rules.md), a kryteria wydania [Decyzje produktowe i QA](05-product-decisions-and-qa.md).

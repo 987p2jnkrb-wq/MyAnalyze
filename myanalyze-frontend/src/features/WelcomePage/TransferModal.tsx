@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { Account } from "../../types/account";
 import Modal from "../../components/Modal";
+import ModalFormActions from "../../components/ModalFormActions";
 import MoneyInput from "../../components/MoneyInput";
 import { parseRequiredNumber } from "../../utils/numbers";
 import { formatCurrency } from "../../utils/formatters";
@@ -44,8 +45,8 @@ const TransferModal: React.FC<TransferModalProps> = ({ open, fromAccount, accoun
   };
 
   return (
-    <Modal open={open} onClose={() => { if (!submitting) onClose(); }} title={`Przelej środki z: ${fromAccount.nazwa}`} size="md">
-            <div>
+    <Modal open={open} onClose={() => { if (!submitting) onClose(); }} title={`Przelej środki z: ${fromAccount.nazwa}`} size="md" footer={<ModalFormActions saving={submitting} savingLabel="Przelewanie…" onCancel={onClose} form="account-transfer-form" submitLabel="Przelej" />}>
+            <form id="account-transfer-form" onSubmit={(event) => { event.preventDefault(); void handleTransfer(); }}>
               <label className="block mb-2 font-semibold">Na konto:</label>
               <select
                 className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
@@ -69,11 +70,7 @@ const TransferModal: React.FC<TransferModalProps> = ({ open, fromAccount, accoun
                 onValueChange={setAmount}
               />
               {error && <div className="text-red-600 mb-2 text-center font-semibold">{error}</div>}
-              <div className="flex flex-row justify-end gap-3 mt-6">
-                <button type="button" disabled={submitting} className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50" onClick={onClose}>Anuluj</button>
-                <button type="button" disabled={submitting} className="px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50" onClick={handleTransfer}>{submitting ? "Przelewanie…" : "Przelej"}</button>
-              </div>
-            </div>
+            </form>
     </Modal>
   );
 };

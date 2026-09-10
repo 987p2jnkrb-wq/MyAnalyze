@@ -149,17 +149,22 @@ describe("finance manager summary", () => {
     expect(tomorrowResult.availableDailyBudget).toBe(500);
   });
 
-  it("keeps daily living money as a future planning reserve, not an expense", () => {
-    const result = buildPeriodSummary({
+  it("reduces the forecast by the daily living budget for every selected day", () => {
+    const input = {
       now: new Date(2026, 7, 23, 12), selectedDate: new Date(2026, 7, 25, 12),
       accounts: [{ id: 1, nazwa: "Konto", saldo_dostepne: 2000, saldo_wlasciwe: 2000, typ_depozytu: "konto" }],
       recurringIncomes: [], recurringExpenses: [], incomes: [], expenses: [], dailyLivingBudget: 50, financialFloor: 500,
-    });
+    };
+    const result = buildPeriodSummary(input);
+    const nextDay = buildPeriodSummary({ ...input, selectedDate: new Date(2026, 7, 26, 12) });
     expect(result.periodExpenses).toBe(0);
     expect(result.remainingDaysInPeriod).toBe(18);
     expect(result.dailyLivingReserve).toBe(900);
-    expect(result.actualAfterLivingReserveAtSelectedDate).toBe(1100);
-    expect(result.actualAfterLivingReserveDailyBudget).toBeCloseTo(366.67, 2);
+    expect(result.remainingLivingReserveAfterSelectedDate).toBe(750);
+    expect(nextDay.remainingLivingReserveAfterSelectedDate).toBe(700);
+    expect(result.actualAfterLivingReserveAtSelectedDate).toBe(1850);
+    expect(nextDay.actualAfterLivingReserveAtSelectedDate).toBe(1800);
+    expect(result.actualAfterLivingReserveDailyBudget).toBeCloseTo(616.67, 2);
     expect(result.plannedActualAtSelectedDate).toBe(1850);
     expect(result.safeDailyBudget).toBeCloseTo(83.33, 2);
   });

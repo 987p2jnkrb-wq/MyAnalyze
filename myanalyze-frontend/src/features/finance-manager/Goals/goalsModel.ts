@@ -4,7 +4,7 @@ import { isOutstandingStandalonePlan, outstandingStandalonePlanAmount } from "..
 import type { RecurringModel } from "../../../context/useRecurringResource";
 import { isCreditAccount, isVirtualWallet } from "../../../utils/accountModel";
 import { isValidDateOnly, localDateKey, roundMoney, validateMoneyRange, validateNonNegativeMoney, validatePositiveMoney } from "../../../utils/validation";
-import { assessDailyBudget, buildFinanceSummary, buildPeriodSummary, getPayPeriod, type FinanceSummaryValues } from "../financeSummary";
+import { assessDailyBudget, buildFinanceSummary, buildPeriodSummary, buildUpcomingOperationDays, getPayPeriod, type FinanceSummaryValues } from "../financeSummary";
 
 export const GOAL_TYPES = ["emergency_fund", "purchase", "travel", "car", "renovation", "down_payment", "debt_repayment", "custom"] as const;
 export type GoalType = typeof GOAL_TYPES[number];
@@ -331,21 +331,25 @@ export function buildGoalProjection(input: {
   // Zrealizowane importy nie są ponownie liczone jako wpływy. Przenoszą jednak
   // informację, jaka część planu została już wykonana i ma zniknąć z prognozy.
   const matchedActualIncomes = input.incomes.filter((income) => (income.planMatches ?? []).length > 0);
-  const summaryFor = (selectedDate: Date, incomes: TransactionModel[]) => buildPeriodSummary({
+  const summaryFor = (incomes: TransactionModel[]) => buildPeriodSummary({
     accounts: liquidAccounts, recurringExpenses: input.recurringExpenses, recurringIncomes: input.recurringIncomes,
-    incomes: [...incomes, ...matchedActualIncomes], expenses: input.expenses, now, selectedDate, dailyLivingBudget: input.settings.dailyLivingBudget, financialFloor: input.settings.financialFloor, paydayCycleStartDay: input.settings.paydayCycleStartDay,
+    incomes: [...incomes, ...matchedActualIncomes], expenses: input.expenses, now, selectedDate: period.end, dailyLivingBudget: input.settings.dailyLivingBudget, financialFloor: input.settings.financialFloor, paydayCycleStartDay: input.settings.paydayCycleStartDay,
   });
-  let minimum = buildLiquidityBreakdown(liquidAccounts).total;
-  let minimumExpectedAfterReserve = minimum;
-  for (let cursor = now; cursor <= period.end; cursor = addDays(cursor, 1)) {
-    minimum = Math.min(minimum, summaryFor(cursor, guaranteedIncomes).plannedActualAtSelectedDate);
-    minimumExpectedAfterReserve = Math.min(minimumExpectedAfterReserve, summaryFor(cursor, [...guaranteedIncomes, ...expectedIncomes]).actualAfterLivingReserveAtSelectedDate);
-  }
-  const conservative = summaryFor(period.end, guaranteedIncomes);
-  const expected = summaryFor(period.end, [...guaranteedIncomes, ...expectedIncomes]);
-  const potential = summaryFor(period.end, [...guaranteedIncomes, ...expectedIncomes, ...potentialIncomes]);
+  const forecastPathFor = (incomes: TransactionModel[]) => buildUpcomingOperationDays({
+    accounts: liquidAccounts, recurringExpenses: input.recurringExpenses, recurringIncomes: input.recurringIncomes,
+    incomes: [...incomes, ...matchedActualIncomes], expenses: input.expenses, now, endDate: period.end,
+    dailyLivingBudget: input.settings.dailyLivingBudget, financialFloor: input.settings.financialFloor,
+  });
+  const liquidity = buildLiquidityBreakdown(liquidAccounts);
+  const conservative = summaryFor(guaranteedIncomes);
+  const expected = summaryFor([...guaranteedIncomes, ...expectedIncomes]);
+  const potential = summaryFor([...guaranteedIncomes, ...expectedIncomes, ...potentialIncomes]);
+  const conservativePath = forecastPathFor(guaranteedIncomes);
+  const expectedPath = forecastPathFor([...guaranteedIncomes, ...expectedIncomes]);
+  const minimum = Math.min(liquidity.total, conservative.plannedActualAtSelectedDate, ...conservativePath.map((day) => day.balanceAfterDay));
+  const minimumExpectedAfterReserve = Math.min(liquidity.total, expected.actualAfterLivingReserveAtSelectedDate, ...expectedPath.map((day) => day.balanceAfterDay));
   return {
-    liquidity: buildLiquidityBreakdown(liquidAccounts),
+    liquidity,
     minimumConservativeLiquidity: roundMoney(minimum),
     minimumExpectedLiquidityAfterReserve: roundMoney(minimumExpectedAfterReserve),
     conservativeEnd: roundMoney(conservative.plannedActualAtSelectedDate),
@@ -360,16 +364,23 @@ export function buildGoalProjection(input: {
   };
 }
 
-export function buildGoalMetric(goal: FinancialGoal, monthlyCapacity: number, now = new Date()): GoalMetric {
+export function goalAvailableNow(goal: FinancialGoal, safeSurplus: number): number {
+  return goal.includeAccountBalance && goal.accountId !== null
+    ? goal.allocatedAmount
+    : Math.max(goal.allocatedAmount, safeSurplus);
+}
+
+export function buildGoalMetric(goal: FinancialGoal, monthlyCapacity: number, availableNow = goal.allocatedAmount, now = new Date()): GoalMetric {
   const remaining = roundMoney(Math.max(0, goal.targetAmount - goal.allocatedAmount));
   const progress = goal.targetAmount > 0 ? Math.min(100, roundMoney(goal.allocatedAmount / goal.targetAmount * 100)) : 0;
-  if (remaining === 0) return { progress, remaining, monthlyRequired: 0, feasibility: "comfortable" };
+  const feasibilityRemaining = roundMoney(Math.max(0, goal.targetAmount - Math.max(goal.allocatedAmount, availableNow)));
+  if (feasibilityRemaining === 0) return { progress, remaining, monthlyRequired: 0, feasibility: "comfortable" };
   if (!goal.dueDate) return { progress, remaining, monthlyRequired: null, feasibility: "unknown" };
   const due = new Date(`${goal.dueDate}T12:00:00`);
   if (Number.isNaN(due.getTime())) return { progress, remaining, monthlyRequired: null, feasibility: "unknown" };
   const days = Math.max(1, Math.ceil((localDate(due).getTime() - localDate(now).getTime()) / 86_400_000));
   const months = Math.max(1, days / 30.4375);
-  const monthlyRequired = roundMoney(remaining / months);
+  const monthlyRequired = roundMoney(feasibilityRemaining / months);
   const feasibility = monthlyCapacity <= 0 ? "difficult" : monthlyRequired <= monthlyCapacity * 0.5 ? "comfortable" : monthlyRequired <= monthlyCapacity ? "demanding" : "difficult";
   return { progress, remaining, monthlyRequired, feasibility };
 }
@@ -432,7 +443,7 @@ export function buildGoalRecommendations(input: {
   }
   const goalNeedingAttention = periodDeficit > 0 ? undefined : input.goals
     .filter((goal) => goal.status === "active")
-    .map((goal) => ({ goal, metric: buildGoalMetric(goal, input.projection.conservativeMonthlyCapacity, input.now) }))
+    .map((goal) => ({ goal, metric: buildGoalMetric(goal, input.projection.conservativeMonthlyCapacity, goalAvailableNow(goal, input.projection.safeSurplus), input.now) }))
     .filter(({ metric }) => metric.feasibility === "difficult" || metric.feasibility === "demanding")
     .sort((left, right) => {
       const feasibilityOrder = { difficult: 0, demanding: 1, comfortable: 2, unknown: 3 } as const;
@@ -766,7 +777,7 @@ export function buildGoalsAiPrompt(input: {
     `Finansowa podłoga: ${input.settings.financialFloor.toFixed(2)}`,
     `Budżet bieżący / dzień: ${input.settings.dailyLivingBudget.toFixed(2)}`,
     `Rezerwa na codzienne wydatki do kolejnej wypłaty: ${input.projection.dailyLivingReserve.toFixed(2)}`,
-    `Bezpiecznie dostępne / dzień: ${input.projection.safeDailyBudget.toFixed(2)}`,
+    `Maksymalny bezpieczny budżet / dzień: ${input.projection.safeDailyBudget.toFixed(2)}`,
     `Bezpieczna nadwyżka: ${input.projection.safeSurplus.toFixed(2)}`,
     `Prognoza konserwatywna na koniec okresu: ${input.projection.conservativeEnd.toFixed(2)}`,
     `Prognoza z wpływami oczekiwanymi: ${input.projection.expectedEnd.toFixed(2)}`,
@@ -788,7 +799,7 @@ export function buildGoalsAiPrompt(input: {
     ...input.debts.filter((debt) => debt.debt > 0).map((debt) => `- ${debt.type}: zadłużenie ${debt.debt.toFixed(2)}, rata ${debt.installment.toFixed(2)}, RRSO ${debt.apr == null ? "brak" : `${debt.apr.toFixed(2)}%`}, oprocentowanie ${debt.interest == null ? "brak" : `${debt.interest.toFixed(2)}%`}`),
     "",
     "Cele (nazwy celów są podane świadomie):",
-    ...input.goals.filter((goal) => goal.status === "active").map((goal) => { const metric = buildGoalMetric(goal, input.projection.conservativeMonthlyCapacity); return `- ${goal.name}: ${goal.allocatedAmount.toFixed(2)} / ${goal.targetAmount.toFixed(2)}, pozostało ${metric.remaining.toFixed(2)}, termin ${goal.dueDate ?? "brak"}, priorytet ${goal.priority}`; }),
+    ...input.goals.filter((goal) => goal.status === "active").map((goal) => { const metric = buildGoalMetric(goal, input.projection.conservativeMonthlyCapacity, goalAvailableNow(goal, input.projection.safeSurplus)); return `- ${goal.name}: ${goal.allocatedAmount.toFixed(2)} / ${goal.targetAmount.toFixed(2)}, pozostało ${metric.remaining.toFixed(2)}, termin ${goal.dueDate ?? "brak"}, priorytet ${goal.priority}`; }),
     "",
     "Aplikacja sama nie ocenia szczegółowo podatków, warunków umów, ryzyka utraty dochodu, sensu nadpłaty konkretnego kredytu ani realności założeń użytkownika. Uwzględnij te ograniczenia i zaznacz, czego nie da się stwierdzić z tych danych.",
   ];

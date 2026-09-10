@@ -70,7 +70,7 @@ Kliknięcie zaciemnionego tła nie zamyka modala, dzięki czemu przypadkowe klik
 
 Ekran Konfiguracja korzysta ze wspólnego `DataGrid` do prezentacji języka, motywu, waluty, aliasu oraz wejścia do zarządzania modułami. Przycisk „Zapisz ustawienia” zapisuje cały zestaw lokalnie, stosuje wybrany motyw i pokazuje wspólny toast aplikacji. Domyślnym motywem jest jasny.
 
-Zarządzanie modułami otwiera modal z drugim `DataGrid`. Konfiguracja modułów jest zapisywana przez API w SQLite i pozwala zmienić nazwę, opis, ikonę, widoczność oraz kolejność modułów strony startowej. Strona startowa i ekran konfiguracji korzystają z jednego katalogu modułów, ikon oraz jednej funkcji scalającej wartości domyślne z odpowiedzią API. Walutą możliwą do wybrania pozostaje wyłącznie PLN, ale formatery, pola kwotowe i eksport odczytują jej kod z Konfiguracji, co zostawia jedno miejsce do późniejszego rozszerzenia. Jedynym dostępnym językiem jest obecnie polski.
+Zarządzanie modułami otwiera modal z drugim `DataGrid`. Konfiguracja modułów jest zapisywana przez API w SQLite i pozwala zmienić nazwę, opis, ikonę, widoczność oraz kolejność modułów strony startowej. Strona startowa i ekran konfiguracji korzystają z jednego katalogu modułów, ikon oraz jednej funkcji scalającej wartości domyślne z odpowiedzią API. Walutą możliwą do wybrania pozostaje wyłącznie PLN, ale formatery, pola kwotowe i eksport odczytują jej kod z Konfiguracji, co zostawia jedno miejsce do późniejszego rozszerzenia. Interfejs jest dostępny w języku polskim i angielskim.
 
 ## Podział odpowiedzialności
 
@@ -87,7 +87,7 @@ Zarządzanie modułami otwiera modal z drugim `DataGrid`. Konfiguracja modułów
 
 ## Zasady zmian
 
-Przed modyfikacją reguły finansowej należy sprawdzić [Decyzje produktowe i QA](05-DECYZJE-PRODUKTOWE-I-QA.md). Nie każda nietypowa reguła jest błędem; wiele uproszczeń zostało wybranych po to, aby aplikacja pozostała przewidywalna.
+Przed modyfikacją reguły finansowej należy sprawdzić [Decyzje produktowe i QA](05-product-decisions-and-qa.md). Nie każda nietypowa reguła jest błędem; wiele uproszczeń zostało wybranych po to, aby aplikacja pozostała przewidywalna.
 
 Bezpieczna kolejność pracy:
 

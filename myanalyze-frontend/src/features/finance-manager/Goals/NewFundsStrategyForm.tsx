@@ -37,39 +37,29 @@ function targetOptions(kind: NewFundsStrategyKind, goals: FinancialGoal[], debts
 }
 
 export default function NewFundsStrategyForm({
-  initial,
+  strategy,
   settings,
   realLiquidity,
   goals,
   debts,
   accounts,
-  saving,
-  onCancel,
-  onSave,
-  embedded = false,
   onChange,
 }: {
-  initial: NewFundsStrategy;
+  strategy: NewFundsStrategy;
   settings: GoalSettings;
   realLiquidity: number;
   goals: FinancialGoal[];
   debts: GoalDebt[];
   accounts: Account[];
-  saving: boolean;
-  onCancel: () => void;
-  onSave: (strategy: NewFundsStrategy) => Promise<void>;
-  embedded?: boolean;
-  onChange?: (strategy: NewFundsStrategy) => void;
+  onChange: (strategy: NewFundsStrategy) => void;
 }) {
   const t = useUiText();
-  const [strategy, setStrategy] = React.useState<NewFundsStrategy>(() => ({ version: 1, items: initial.items.map((item) => ({ ...item, share: Math.round(item.share) })) }));
   const bufferRule = getBufferAllocationRule(realLiquidity, settings);
   const total = strategy.items.reduce((sum, item) => sum + Number(item.share || 0), 0);
   const validationError = validateNewFundsStrategy(strategy, goals, debts, accounts);
-  React.useEffect(() => onChange?.(strategy), [onChange, strategy]);
 
   const replaceItem = (id: string, updater: (item: NewFundsStrategyItem) => NewFundsStrategyItem) => {
-    setStrategy((current) => ({ ...current, items: current.items.map((item) => item.id === id ? updater(item) : item) }));
+    onChange({ ...strategy, items: strategy.items.map((item) => item.id === id ? updater(item) : item) });
   };
 
   const changeKind = (item: NewFundsStrategyItem, kind: NewFundsStrategyKind) => {
@@ -90,15 +80,12 @@ export default function NewFundsStrategyForm({
   const addRow = () => {
     if (!nextCandidate) return;
     const missing = Math.max(0, Math.round(100 - total));
-    setStrategy((current) => ({
-      ...current,
-      items: [...current.items, { id: rowId(nextCandidate.kind), kind: nextCandidate.kind, targetId: nextCandidate.targetId, share: missing > 0 ? missing : 10 }],
-    }));
+    onChange({ ...strategy, items: [...strategy.items, { id: rowId(nextCandidate.kind), kind: nextCandidate.kind, targetId: nextCandidate.targetId, share: missing > 0 ? missing : 10 }] });
   };
 
-  const useSuggestion = () => setStrategy(buildSuggestedNewFundsStrategy(realLiquidity, settings, goals, debts, accounts));
+  const useSuggestion = () => onChange(buildSuggestedNewFundsStrategy(realLiquidity, settings, goals, debts, accounts));
 
-  return <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); if (!embedded && !validationError) void onSave(strategy); }}>
+  return <div className="space-y-5">
     <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
       <div>
         <div className="flex flex-wrap items-center gap-2">
@@ -121,7 +108,7 @@ export default function NewFundsStrategyForm({
               ? <div><span className="mb-1 block text-xs font-semibold text-slate-600">Aktywny próg poduszki</span><div className="flex min-h-[42px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{bufferRule.complete ? "Poduszka osiągnięta" : <>Próg {bufferRule.threshold?.toFixed(2)} · alokacja {bufferRule.allocation}%</>}<HelpBadge tone="info" help="Dla poduszki udział strategii jest mnożony przez alokację aktualnego progu. Przykład: 30% strategii × 70% alokacji progu = 21% puli po zabezpieczeniu podłogi i rezerwy. Niewykorzystana część albo kwota ponad brak do progu pozostaje do decyzji.">Jak liczę?</HelpBadge></div></div>
               : <label><span className="mb-1 block text-xs font-semibold text-slate-600">Konkretny cel</span><select className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5" value={item.targetId ?? ""} onChange={(event) => replaceItem(item.id, (current) => ({ ...current, targetId: event.target.value ? Number(event.target.value) : null }))}><option value="">Wybierz…</option>{options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>}
             <label><span className="mb-1 block text-xs font-semibold text-slate-600">Udział</span><div className="flex"><input type="number" min={1} max={100} step={1} className="min-w-0 flex-1 rounded-l-lg border border-slate-300 px-3 py-2.5 text-right" value={item.share} onChange={(event) => replaceItem(item.id, (current) => ({ ...current, share: Math.round(Number(event.target.value)) }))} /><span className="rounded-r-lg border border-l-0 border-slate-300 bg-slate-50 px-3 py-2.5">%</span></div></label>
-            <button type="button" aria-label="Usuń pozycję" title="Usuń pozycję" className="flex h-[42px] w-[42px] items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50" onClick={() => setStrategy((current) => ({ ...current, items: current.items.filter((candidate) => candidate.id !== item.id) }))}><Trash2 size={17} /></button>
+            <button type="button" aria-label="Usuń pozycję" title="Usuń pozycję" className="flex h-[42px] w-[42px] items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50" onClick={() => onChange({ ...strategy, items: strategy.items.filter((candidate) => candidate.id !== item.id) })}><Trash2 size={17} /></button>
           </div>
           {item.kind === "buffer" && <p className="mt-2 text-xs text-slate-500">Maks. efektywnie teraz: <strong>{bufferEffective == null ? "-" : `${Math.round(bufferEffective)}%`}</strong> puli strategii{bufferRule.complete ? " - poduszka jest już powyżej najwyższego progu, więc ta część pozostanie do decyzji." : "."}</p>}
         </div>;
@@ -132,6 +119,5 @@ export default function NewFundsStrategyForm({
     <button type="button" disabled={!nextCandidate} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" onClick={addRow}><Plus size={16} />Dodaj pozycję</button>
 
     {validationError && <p className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">{t(validationError)}</p>}
-    {!embedded && <div className="flex justify-end gap-2 border-t border-slate-200 pt-4"><button type="button" disabled={saving} className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold" onClick={onCancel}>Anuluj</button><button type="submit" disabled={saving || Boolean(validationError)} className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{saving ? "Zapisywanie…" : "Zapisz strategię"}</button></div>}
-  </form>;
+  </div>;
 }

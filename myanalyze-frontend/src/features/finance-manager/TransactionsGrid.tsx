@@ -4,6 +4,7 @@ import DataGrid, { type DataGridColumn } from "../../components/DataGrid";
 import MoneyInput from "../../components/MoneyInput";
 import IconButton from "../../components/IconButton";
 import Modal from "../../components/Modal";
+import ModalFormActions from "../../components/ModalFormActions";
 import ConfirmModal from "../../components/ConfirmModal";
 import ModuleBadge, { type ModuleBadgeTone } from "../../components/ModuleBadge";
 import RealizeModal from "../../components/RealizeModal";
@@ -32,6 +33,7 @@ import { isIncludedInAnalysis } from "./transactionSemantics";
 import { transactionStatus } from "./transactionPresentation";
 import { isTransactionInDateRange } from "./transactionFilters";
 import { useUiText } from "../../i18n";
+import HelpBadge from "../../components/HelpBadge";
 
 type TransactionRow = TransactionModel;
 
@@ -64,18 +66,21 @@ function transactionCertainty(row: TransactionRow): IncomeCertainty {
   return row.generatedFromRecurring ? "guaranteed" : row.certainty ?? "expected";
 }
 
-function TransactionForm({ row, kind, customTypes, saving, onCancel, onSave }: {
+function hasPastExpectedDate(row: TransactionRow): boolean {
+  const date = row.addedAt.slice(0, 10);
+  return !row.zrealizowany && /^\d{4}-\d{2}-\d{2}$/.test(date) && date < today();
+}
+
+function TransactionForm({ row, kind, customTypes, onSave }: {
   row: TransactionRow | null;
   kind: "income" | "expense";
   customTypes: CustomTransactionType[];
-  saving: boolean;
-  onCancel: () => void;
   onSave: (payload: TransactionPayload) => Promise<void>;
 }) {
   const [draft, setDraft] = React.useState<TransactionFormDraft>(() => row ? { name: row.name, amount: String(row.amount), category: row.category || "Inne", customTypeId: row.customTypeId ?? null, customTypeName: row.customTypeName ?? null, addedAt: row.addedAt?.slice(0, 10) ?? today(), transactionType: row.transactionType ?? null, certainty: row.certainty ?? "expected" } : { name: "", amount: "", category: "Inne", customTypeId: null, customTypeName: null, addedAt: today(), transactionType: null, certainty: "expected" });
   const transactionTypes = transactionTypeOptionsFor(kind);
   return (
-    <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); void onSave({ ...draft, name: draft.name.trim(), amount: parseRequiredNumber(draft.amount) }); }}>
+    <form id="transaction-form" className="space-y-5" onSubmit={(event) => { event.preventDefault(); void onSave({ ...draft, name: draft.name.trim(), amount: parseRequiredNumber(draft.amount) }); }}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="md:col-span-2"><span className="mb-1 block text-sm font-semibold">Nazwa</span><input autoFocus required className="w-full rounded-lg border border-gray-300 px-3 py-2" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
         <label><span className="mb-1 block text-sm font-semibold">Kwota</span><MoneyInput required min={0.01} className="w-full rounded-lg border border-gray-300 px-3 py-2" value={draft.amount} onValueChange={(value) => setDraft((current) => ({ ...current, amount: value }))} /></label>
@@ -84,7 +89,6 @@ function TransactionForm({ row, kind, customTypes, saving, onCancel, onSave }: {
         <label><span className="mb-1 block text-sm font-semibold">Typ transakcji <span className="font-normal text-gray-500">(opcjonalnie)</span></span><select className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2" value={draft.transactionType ?? ""} onChange={(event) => setDraft((current) => ({ ...current, transactionType: (event.target.value || null) as TransactionType | null }))}><option value="">Nie określono</option>{transactionTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         {kind === "income" && <label><span className="mb-1 block text-sm font-semibold">Pewność wpływu</span><select className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2" value={draft.certainty ?? "expected"} onChange={(event) => setDraft((current) => ({ ...current, certainty: event.target.value as IncomeCertainty }))}>{INCOME_CERTAINTY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><span className="mt-1 block text-xs text-slate-500">Potencjalny wpływ nie zwiększa konserwatywnej prognozy Celów.</span></label>}
       </div>
-      <div className="flex justify-end gap-2 border-t border-gray-200 pt-4"><Button tone="neutral" onClick={onCancel}>Anuluj</Button><Button type="submit" tone="primary" disabled={saving}>{saving ? "Zapisywanie…" : row ? "Zapisz zmiany" : "Dodaj"}</Button></div>
     </form>
   );
 }
@@ -112,20 +116,20 @@ function ImportedAccountCorrectionModal({
   }, [rows]);
   if (!rows?.length) return null;
   const single = rows.length === 1 ? rows[0] : null;
-  return <Modal open onClose={() => { if (!saving) onClose(); }} title={rows.length === 1 ? "Zmień konto zaimportowanej transakcji" : `Zmień konto ${rows.length} zaimportowanych transakcji`} size="sm">
+  const saveSelection = async () => {
+    if (selectedId == null) return;
+    setSaving(true); setError("");
+    try { await onSave(selectedId); }
+    catch (caught) { setError(caught instanceof Error && caught.message ? caught.message : "Nie udało się zmienić konta."); }
+    finally { setSaving(false); }
+  };
+  return <Modal open onClose={() => { if (!saving) onClose(); }} title={rows.length === 1 ? "Zmień konto zaimportowanej transakcji" : `Zmień konto ${rows.length} zaimportowanych transakcji`} size="sm" footer={<ModalFormActions saving={saving} disabled={selectedId == null} onCancel={onClose} onSubmit={() => void saveSelection()} submitLabel="Zmień konto" />}>
     <div className="space-y-4">
       {single && <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700"><strong className="block text-slate-900">{single.name}</strong><span>{formatDate(single.addedAt)} · {formatCurrency(single.amount)}</span><span className="mt-1 block">Obecne konto: {single.accountId == null ? "Nieprzypisane" : accountNames.get(single.accountId) ?? `#${single.accountId}`}</span></div>}
       <p className="text-sm text-slate-600">To jest korekta przypisania importu. Salda kont, fingerprint importu, etykieta, powiązanie z planem i cross-link pozostaną bez zmian.</p>
       <AllocationOptionSelect label="Nowe konto" placeholder="Wybierz konto" options={accountAllocationOptions(accounts, false, { includeInactive: true })} value={selectedId} onChange={(value) => { setSelectedId(value); setError(""); }} />
       <p className="text-xs text-slate-500">Zmiana dotyczy tylko wybranych transakcji. Nie zmienia zapisanych mapowań instrumentu używanych przy kolejnych importach.</p>
       {error && <div role="alert" className="text-sm font-semibold text-red-700">{error}</div>}
-      <div className="flex justify-end gap-2 border-t border-slate-200 pt-4"><Button tone="neutral" disabled={saving} onClick={onClose}>Anuluj</Button><Button tone="primary" disabled={saving || selectedId == null} onClick={async () => {
-        if (selectedId == null) return;
-        setSaving(true); setError("");
-        try { await onSave(selectedId); }
-        catch (caught) { setError(caught instanceof Error && caught.message ? caught.message : "Nie udało się zmienić konta."); }
-        finally { setSaving(false); }
-      }}>{saving ? "Zapisywanie…" : "Zmień konto"}</Button></div>
     </div>
   </Modal>;
 }
@@ -169,7 +173,7 @@ function TransactionsGrid({ kind, rows, onAdd, onEdit, onDelete, onRefresh, plan
     { key: "customType", label: "Etykieta", value: (row) => row.customTypeName ?? "Nie ustawiono", sortable: true, filterable: true, width: 180, edit: { type: "select", value: (row) => String(row.customTypeId ?? "none"), options: [{ value: "none", label: "Bez etykiety" }, ...customTypes.map((item) => ({ value: String(item.id), label: item.name }))], update: (row, value) => { const customTypeId = value === "none" ? null : Number(value); const customType = customTypes.find((item) => item.id === customTypeId); return { ...row, customTypeId, customTypeName: customType?.name ?? null }; } } },
     { key: "account", label: "Konto", value: (row) => row.accountId == null ? "Nieprzypisane" : accountNames.get(row.accountId) ?? `#${row.accountId}`, sortable: true, filterable: true, width: 170, edit: { type: "select", value: (row) => String(row.accountId ?? ""), options: [{ value: "", label: "Nieprzypisane" }, ...accountOptions.map((account) => ({ value: String(account.id), label: account.label }))], disabled: (row) => !row.importSource, update: (row, value) => ({ ...row, accountId: value === "" ? null : Number(value) }) } },
     { key: "transactionType", label: "Typ transakcji", value: (row) => transactionTypeLabel(row.transactionType), render: (row) => <ModuleBadge tone={row.transactionType ? "info" : "neutral"} size="sm">{transactionTypeLabel(row.transactionType)}</ModuleBadge>, sortable: true, filterable: true, width: 190, edit: { type: "select", value: (row) => row.transactionType ?? "", options: [{ value: "", label: "Nie określono" }, ...transactionTypeOptionsFor(kind).map((option) => ({ value: option.value, label: option.label }))], disabled: (row) => row.zrealizowany, update: (row, value) => ({ ...row, transactionType: (String(value) || null) as TransactionType | null }) } },
-    { key: "addedAt", label: "Data", value: (row) => row.addedAt, render: (row) => formatDate(row.addedAt), exportValue: (row) => formatDate(row.addedAt), sortable: true, width: 145, edit: { type: "date", value: (row) => row.addedAt.slice(0, 10), disabled: (row) => row.zrealizowany, update: (row, value) => ({ ...row, addedAt: String(value) }) } },
+    { key: "addedAt", label: "Data", value: (row) => row.addedAt, render: (row) => <span className="inline-flex items-center gap-1.5"><span>{formatDate(row.addedAt)}</span>{hasPastExpectedDate(row) && <HelpBadge help="Oczekiwana data tej pozycji jest w przeszłości. Możesz zmienić datę albo pozostawić ją bez zmian." tone="warning" icon="warning" />}</span>, exportValue: (row) => formatDate(row.addedAt), sortable: true, width: 165, edit: { type: "date", value: (row) => row.addedAt.slice(0, 10), disabled: (row) => row.zrealizowany, update: (row, value) => ({ ...row, addedAt: String(value) }) } },
     ...(isIncome ? [{ key: "certainty", label: "Pewność", value: (row: TransactionRow) => incomeCertaintyLabel(transactionCertainty(row)), render: (row: TransactionRow) => { const certainty = transactionCertainty(row); return <ModuleBadge tone={certainty === "potential" ? "warning" : certainty === "guaranteed" ? "success" : "info"} size="sm">{incomeCertaintyLabel(certainty)}</ModuleBadge>; }, sortable: true, filterable: true, filterOptions: INCOME_CERTAINTY_OPTIONS.map((option) => option.label), width: 145, edit: { type: "select" as const, value: (row: TransactionRow) => row.certainty ?? "expected", options: INCOME_CERTAINTY_OPTIONS.map((option) => ({ ...option })), disabled: (row: TransactionRow) => row.zrealizowany || Boolean(row.generatedFromRecurring), update: (row: TransactionRow, value: string | number | boolean) => ({ ...row, certainty: String(value) as IncomeCertainty }) } }] : []),
     { key: "status", label: "Status", value: (row) => t(transactionStatus(row).value), render: (row) => { const status = transactionStatus(row); return <ModuleBadge tone={status.tone} size="sm">{t(status.label)}</ModuleBadge>; }, sortable: true, filterable: true, filterOptions: ["Zaplanowane", "Zrealizowane", "Oczekujące bankowe", "Anulowane bankowe"].map(t), width: 170, align: "center" },
   ], [accountNames, accountOptions, allTransactionMap, customTypes, isIncome, kind, t]);
@@ -330,8 +334,8 @@ function TransactionsGrid({ kind, rows, onAdd, onEdit, onDelete, onRefresh, plan
       />
       <ImportedAccountCorrectionModal rows={accountChangeRows} accounts={accounts} accountNames={accountNames} onClose={() => setAccountChangeRows(null)} onSave={changeImportedAccount} />
       <TransactionLinkPicker open={Boolean(linkRow)} sourceKind={kind} sourceRow={linkRow} incomes={allIncomes} expenses={allExpenses} accountNames={accountNames} accountTypes={accountTypes} onClose={() => setLinkRow(null)} onSelect={async (candidateKind, candidate) => { await linkTransfer({ kind: candidateKind, row: candidate }); }} />
-      <Modal open={Boolean(editor)} onClose={() => setEditor(null)} title={editor?.mode === "edit" ? `${t("Edytuj")}: ${t(singular)}` : t(isIncome ? "Dodaj przychód" : "Dodaj wydatek")} size="lg">
-        {editor && <TransactionForm key={`${editor.mode}-${editor.row?.id ?? "new"}`} row={editor.row} kind={kind} customTypes={customTypes} saving={saving} onCancel={() => setEditor(null)} onSave={save} />}
+      <Modal open={Boolean(editor)} onClose={() => { if (!saving) setEditor(null); }} title={editor?.mode === "edit" ? `${t("Edytuj")}: ${t(singular)}` : t(isIncome ? "Dodaj przychód" : "Dodaj wydatek")} size="lg" footer={editor && <ModalFormActions saving={saving} onCancel={() => setEditor(null)} form="transaction-form" submitLabel={editor.mode === "edit" ? "Zapisz zmiany" : "Dodaj"} />}>
+        {editor && <TransactionForm key={`${editor.mode}-${editor.row?.id ?? "new"}`} row={editor.row} kind={kind} customTypes={customTypes} onSave={save} />}
       </Modal>
       <RealizeModal open={Boolean(realizeRow)} accounts={accounts} onClose={() => setRealizeRow(null)} onSelect={realize} title={`Wybierz konto - ${isIncome ? "dodanie środków" : "realizacja wydatku"}`} />
       <AllocationModal open={Boolean(partialRow)} title={`Zrealizuj częściowo: ${partialRow?.name ?? singular}`} description="Zaplanowana pozycja zostanie pomniejszona, a zrealizowana część zapisana osobno." sourceLabel="Konto" sourcePlaceholder="Wybierz konto" availabilityLabel="saldo" options={accountOptions} maximumAmount={partialRow ? availableToRealize(partialRow) : 0} submitLabel="Zrealizuj częściowo" onClose={() => setPartialRow(null)} onSubmit={realizePartially} />

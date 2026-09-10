@@ -5,6 +5,7 @@ export interface SummaryMetric {
   label: string;
   value: number;
   calculation: string;
+  sectionLabel?: string;
   dailyBudgetAssessment?: DailyBudgetAssessment;
 }
 

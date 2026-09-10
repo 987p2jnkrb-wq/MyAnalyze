@@ -1,5 +1,5 @@
 import type { RecurringModel } from "../../context/useRecurringResource";
-import { calculateDebt, isCreditCardType, isInstallmentPlanType, normalizeCreditProductType, optionalNumber } from "./creditProductModel";
+import { calculateDebt, calculateEffectiveCreditCardDebt, normalizeCreditProductType, optionalNumber } from "./creditProductModel";
 
 export const DEBT_PLAN_TYPES = ["Dług", "Raty", "Kredyt", "Kredyt hipoteczny", "Karta kredytowa", "Plan ratalny", "Inne"] as const;
 export type DebtPlanType = typeof DEBT_PLAN_TYPES[number];
@@ -62,12 +62,11 @@ export function buildDebtPlanTotals(plans: DebtPlan[], recurringExpenses: Recurr
 }
 
 export function effectiveDebtPlanDebt(plan: DebtPlan, plans: DebtPlan[]): number {
-  const debt = Number(plan.zadluzenie || 0);
-  if (!isCreditCardType(plan.typ) || plan.account_id === null) return debt;
-  const installmentDebt = plans
-    .filter((item) => isInstallmentPlanType(item.typ) && item.linked_card_account_id === plan.account_id)
-    .reduce((sum, item) => sum + Number(item.zadluzenie || 0), 0);
-  return Math.max(0, Math.round((debt - installmentDebt) * 100) / 100);
+  return calculateEffectiveCreditCardDebt(plan.typ, plan.zadluzenie, plan.account_id, plans.map((item) => ({
+    type: item.typ,
+    linkedCardAccountId: item.linked_card_account_id,
+    debt: item.zadluzenie,
+  })));
 }
 
 export function normalizeDebtPlan(item: Partial<DebtPlan>): DebtPlan {

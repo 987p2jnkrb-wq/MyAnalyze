@@ -4,6 +4,7 @@ import DataGrid, { type DataGridColumn } from "../../components/DataGrid";
 import MoneyInput from "../../components/MoneyInput";
 import IconButton from "../../components/IconButton";
 import Modal from "../../components/Modal";
+import ModalFormActions from "../../components/ModalFormActions";
 import ConfirmModal from "../../components/ConfirmModal";
 import ModuleBadge from "../../components/ModuleBadge";
 import type { Account } from "../../types/account";
@@ -24,7 +25,7 @@ import { DebtPlanEditModal } from "./DebtPlanEditor";
 import { normalizeDebtPlan, type DebtPlan } from "./debtPlanModel";
 import { transactionTypeOptionsFor, type TransactionType } from "../../types/transactionType";
 import ResourceLoadError from "../../components/ResourceLoadError";
-import { ActiveStatusFilter, activeStatusColumn, filterByActiveStatus, type ActiveStatusFilterValue } from "../../components/data-grid/ActiveStatus";
+import { activeStatusColumn } from "../../components/data-grid/ActiveStatus";
 
 type AccountDraft = Omit<Account, "id">;
 type EditorState = { mode: "add" | "edit"; row: Account | null } | null;
@@ -32,7 +33,7 @@ type AdjustmentDirection = "income" | "expense";
 
 const today = () => localDateKey();
 
-function AccountAdjustmentForm({ account, saving, onCancel, onSave }: { account: Account; saving: boolean; onCancel: () => void; onSave: (payload: { direction: AdjustmentDirection; title: string; amount: number; date: string; transaction_type: TransactionType }) => Promise<void> }) {
+function AccountAdjustmentForm({ account, onSave }: { account: Account; onSave: (payload: { direction: AdjustmentDirection; title: string; amount: number; date: string; transaction_type: TransactionType }) => Promise<void> }) {
   const creditCard = isCreditAccount(account);
   const [direction, setDirection] = React.useState<AdjustmentDirection>(() => creditCard ? "expense" : "income");
   const [title, setTitle] = React.useState("");
@@ -44,7 +45,7 @@ function AccountAdjustmentForm({ account, saving, onCancel, onSave }: { account:
     setDirection(nextDirection);
     setTransactionType(nextDirection === "income" ? (creditCard ? "refund" : "top_up") : (creditCard ? "card_payment" : "other"));
   };
-  return <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void onSave({ direction, title: title.trim(), amount: parseRequiredNumber(amount), date, transaction_type: transactionType }); }}>
+  return <form id="account-adjustment-form" className="space-y-4" onSubmit={(event) => { event.preventDefault(); void onSave({ direction, title: title.trim(), amount: parseRequiredNumber(amount), date, transaction_type: transactionType }); }}>
     <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="group" aria-label="Rodzaj zmiany salda">
       <button type="button" aria-pressed={income} className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${income ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`} onClick={() => selectDirection("income")}><ArrowUp size={17} aria-hidden="true" />{creditCard ? "Zwrot / uznanie" : "Zasilenie"}</button>
       <button type="button" aria-pressed={!income} className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${!income ? "bg-rose-600 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`} onClick={() => selectDirection("expense")}><ArrowDown size={17} aria-hidden="true" />{creditCard ? "Wydatek kartą" : "Obciążenie"}</button>
@@ -58,17 +59,16 @@ function AccountAdjustmentForm({ account, saving, onCancel, onSave }: { account:
       <label><span className="mb-1 block text-sm font-semibold">Data</span><input required type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2.5" value={date} onChange={(event) => setDate(event.target.value)} /></label>
       <label className="sm:col-span-2"><span className="mb-1 block text-sm font-semibold">Typ</span><select className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5" value={transactionType} onChange={(event) => setTransactionType(event.target.value as TransactionType)}>{transactionTypeOptionsFor(direction).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
     </div>
-    <div className="flex justify-end gap-2 border-t border-slate-200 pt-4"><button type="button" disabled={saving} className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold" onClick={onCancel}>Anuluj</button><button type="submit" disabled={saving} className={`rounded-lg px-4 py-2 font-semibold text-white disabled:opacity-50 ${income ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"}`}>{saving ? "Księgowanie…" : income ? "Dodaj środki" : "Odejmij środki"}</button></div>
   </form>;
 }
 
-function AccountForm({ row, accounts, saving, onCancel, onSave }: { row: Account | null; accounts: Account[]; saving: boolean; onCancel: () => void; onSave: (draft: AccountDraft) => Promise<void> }) {
+function AccountForm({ row, accounts, onSave }: { row: Account | null; accounts: Account[]; onSave: (draft: AccountDraft) => Promise<void> }) {
   const [draft, setDraft] = React.useState<AccountDraft>(() => row ? { nazwa: row.nazwa, saldo_dostepne: Number(row.saldo_dostepne), saldo_wlasciwe: Number(row.saldo_wlasciwe), typ_depozytu: row.typ_depozytu, institution_name: row.institution_name ?? null, currency: row.currency, repayment_account_id: row.repayment_account_id ?? null, repayment_account_name: row.repayment_account_name ?? null, active: row.active !== false } : { nazwa: "", saldo_dostepne: 0, saldo_wlasciwe: 0, typ_depozytu: "konto", institution_name: null, repayment_account_id: null, repayment_account_name: null, active: true });
   const [availableInput, setAvailableInput] = React.useState(() => row ? String(row.saldo_dostepne) : "");
   const isCredit = isCreditAccount(draft);
   const selectableTypes = isCredit ? accountTypes.filter((item) => item.value === "karta_kredytowa") : regularAccountTypes;
   return (
-    <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); void onSave(withAvailableBalance(draft, parseRequiredNumber(availableInput))); }}>
+    <form id="account-form" className="space-y-5" onSubmit={(event) => { event.preventDefault(); void onSave(withAvailableBalance(draft, parseRequiredNumber(availableInput))); }}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="md:col-span-2"><span className="mb-1 block text-sm font-semibold">Nazwa konta</span><input autoFocus required className="w-full rounded-lg border border-gray-300 px-3 py-2" value={draft.nazwa} onChange={(event) => setDraft((current) => ({ ...current, nazwa: event.target.value }))} /></label>
         <label className="md:col-span-2"><span className="mb-1 block text-sm font-semibold">Instytucja <span className="font-normal text-gray-500">(opcjonalnie)</span></span><input className="w-full rounded-lg border border-gray-300 px-3 py-2" value={draft.institution_name ?? ""} onChange={(event) => setDraft((current) => ({ ...current, institution_name: event.target.value || null }))} placeholder="np. Millennium, Revolut, Vinted" /></label>
@@ -77,7 +77,6 @@ function AccountForm({ row, accounts, saving, onCancel, onSave }: { row: Account
         <label className="md:col-span-2"><span className="mb-1 block text-sm font-semibold">Typ</span><select disabled={isCredit} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 disabled:bg-gray-100" value={draft.typ_depozytu} onChange={(event) => setDraft((current) => withAccountType(current, event.target.value))}>{selectableTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>{!row && <span className="mt-1 block text-xs text-gray-500">Kartę kredytową dodasz w zakładce Zobowiązania. Tutaj pojawi się automatycznie.</span>}</label>
         {isCredit && <label className="md:col-span-2"><span className="mb-1 block text-sm font-semibold">Konto spłacające kartę <span className="font-normal text-gray-500">(opcjonalnie)</span></span><select className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2" value={draft.repayment_account_id ?? ""} onChange={(event) => { const selectedId = event.target.value ? Number(event.target.value) : null; const selectedAccount = accounts.find((account) => account.id === selectedId); setDraft((current) => ({ ...current, repayment_account_id: selectedId, repayment_account_name: selectedAccount?.nazwa ?? null })); }}><option value="">Brak powiązania</option>{accounts.filter((account) => account.id !== row?.id && canLinkToCreditProduct(account)).map((account) => <option key={account.id} value={account.id}>{account.nazwa}</option>)}</select><span className="mt-1 block text-xs text-gray-500">Informacyjne powiązanie używane przy analizie importu. Nie tworzy przelewów i nie zmienia sald.</span></label>}
       </div>
-      <div className="flex justify-end gap-2 border-t border-gray-200 pt-4"><button type="button" className="rounded-lg border border-gray-300 bg-white px-4 py-2 font-semibold" onClick={onCancel}>Anuluj</button><button type="submit" disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{saving ? "Zapisywanie…" : row ? "Zapisz zmiany" : "Dodaj konto"}</button></div>
     </form>
   );
 }
@@ -97,7 +96,6 @@ export default function AccountsGrid() {
   const [adjusting, setAdjusting] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
-  const [statusFilter, setStatusFilter] = React.useState<ActiveStatusFilterValue>("active");
 
   const columns = React.useMemo<DataGridColumn<Account>[]>(() => [
     {
@@ -190,9 +188,9 @@ export default function AccountsGrid() {
       setProductPlan(plan);
     } catch { showToast("Nie udało się otworzyć produktu karty.", "error"); }
   };
-  const displayAccounts = React.useMemo(() => filterByActiveStatus(accounts, statusFilter), [accounts, statusFilter]);
-  const availableTotal = displayAccounts.reduce((sum, row) => sum + Number(row.saldo_dostepne || 0), 0);
-  const actualTotal = displayAccounts.reduce((sum, row) => sum + displayedActualBalance(row), 0);
+  const activeAccounts = React.useMemo(() => accounts.filter((row) => row.active !== false), [accounts]);
+  const availableTotal = activeAccounts.reduce((sum, row) => sum + Number(row.saldo_dostepne || 0), 0);
+  const actualTotal = activeAccounts.reduce((sum, row) => sum + displayedActualBalance(row), 0);
 
   if (!accountsLoaded) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Ładowanie depozytów…</div>;
   if (accountsError) return <ResourceLoadError blocking message={accountsError} onRetry={() => void fetchAccounts()} />;
@@ -201,7 +199,7 @@ export default function AccountsGrid() {
     <div className="min-w-0 space-y-3">
       <DataGrid
         gridId="manager-accounts"
-        rows={displayAccounts}
+        rows={accounts}
         columns={columns}
         getRowId={(row) => row.id}
         selectable
@@ -211,17 +209,18 @@ export default function AccountsGrid() {
         actionsWidth={260}
         onInlineSave={saveInline}
         validateInlineRow={validateAccount}
-        toolbar={<><ActiveStatusFilter ariaLabel="Status kont" value={statusFilter} onChange={setStatusFilter} /><ModuleBadge tone="info">Dostępne: {formatCurrency(availableTotal)}</ModuleBadge><ModuleBadge tone="success">Rzeczywiste: {formatCurrency(actualTotal)}</ModuleBadge><IconButton label="Dodaj konto" tone="primary" onClick={() => setEditor({ mode: "add", row: null })}><Plus size={19} aria-hidden="true" /></IconButton></>}
+        defaultFilters={{ active: "Aktywne" }}
+        toolbar={<><ModuleBadge tone="info">Dostępne: {formatCurrency(availableTotal)}</ModuleBadge><ModuleBadge tone="success">Rzeczywiste: {formatCurrency(actualTotal)}</ModuleBadge><IconButton label="Dodaj konto" tone="primary" onClick={() => setEditor({ mode: "add", row: null })}><Plus size={19} aria-hidden="true" /></IconButton></>}
         refresh={{ onRefresh: refresh, refreshing, label: "Odśwież konta" }}
         actions={(row) => <>{row.active !== false && <IconButton label={`Zaksięguj operację - ${row.nazwa}`} className="h-8 w-8 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => setAdjustment(row)}><span className="text-sm font-extrabold leading-none" aria-hidden="true">+/−</span></IconButton>}<IconButton label={`Importuj CSV/PDF - ${row.nazwa}`} tone="info" onClick={() => setImportAccount(row)}><FileUp size={17} aria-hidden="true" /></IconButton><IconButton label="Edytuj konto" onClick={() => void editAccount(row)}><Pencil size={17} aria-hidden="true" /></IconButton><IconButton label="Historia konta" onClick={() => setHistory(row)}><History size={17} aria-hidden="true" /></IconButton>{row.active !== false && <IconButton label="Przelej środki" tone="info" onClick={() => setTransferFrom(row)}><ArrowRightLeft size={17} aria-hidden="true" /></IconButton>}<IconButton label="Usuń konto" tone="danger" onClick={() => setConfirmId(row.id)}><Trash2 size={17} aria-hidden="true" /></IconButton></>}
       />
-      <Modal open={Boolean(editor)} onClose={() => setEditor(null)} title={editor?.mode === "edit" ? "Edytuj konto" : "Dodaj konto"} size="lg">{editor && <AccountForm key={`${editor.mode}-${editor.row?.id ?? "new"}`} row={editor.row} accounts={accounts} saving={saving} onCancel={() => setEditor(null)} onSave={save} />}</Modal>
+      <Modal open={Boolean(editor)} onClose={() => { if (!saving) setEditor(null); }} title={editor?.mode === "edit" ? "Edytuj konto" : "Dodaj konto"} size="lg" footer={editor && <ModalFormActions saving={saving} onCancel={() => setEditor(null)} form="account-form" submitLabel={editor.mode === "edit" ? "Zapisz zmiany" : "Dodaj konto"} />}>{editor && <AccountForm key={`${editor.mode}-${editor.row?.id ?? "new"}`} row={editor.row} accounts={accounts} onSave={save} />}</Modal>
       {history && <AccountActivityLogModal open onClose={() => setHistory(null)} accountId={history.id} />}
       {transferFrom && <TransferModal open fromAccount={transferFrom} accounts={accounts.filter((row) => row.id !== transferFrom.id && row.active !== false)} onClose={() => setTransferFrom(null)} onTransfer={transfer} />}
       {importAccount && <StatementImportModal account={importAccount} onClose={() => setImportAccount(null)} onImported={async () => { await Promise.all([fetchAccounts(), fetchIncomes(), fetchExpenses()]); }} onSuccess={(message) => showToast(message, "success", 6000)} />}
       <ConfirmModal open={confirmId != null} title="Potwierdź usunięcie" message="Czy na pewno usunąć konto?" onConfirm={() => void remove()} onCancel={() => setConfirmId(null)} />
       <DebtPlanEditModal plan={productPlan} onClose={() => setProductPlan(null)} />
-      <Modal open={adjustment !== null} onClose={() => { if (!adjusting) setAdjustment(null); }} title="Zaksięguj operację" description="Operacja zmieni saldo lub wolny limit i od razu zapisze się jako zrealizowany przychód albo wydatek." size="sm">{adjustment && <AccountAdjustmentForm key={adjustment.id} account={adjustment} saving={adjusting} onCancel={() => setAdjustment(null)} onSave={saveAdjustment} />}</Modal>
+      <Modal open={adjustment !== null} onClose={() => { if (!adjusting) setAdjustment(null); }} title="Zaksięguj operację" description="Operacja zmieni saldo lub wolny limit i od razu zapisze się jako zrealizowany przychód albo wydatek." size="sm" footer={adjustment && <ModalFormActions saving={adjusting} savingLabel="Księgowanie…" onCancel={() => setAdjustment(null)} form="account-adjustment-form" submitLabel="Zaksięguj" />}>{adjustment && <AccountAdjustmentForm key={adjustment.id} account={adjustment} onSave={saveAdjustment} />}</Modal>
     </div>
   );
 }

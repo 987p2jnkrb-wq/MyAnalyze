@@ -55,6 +55,26 @@ export function calculateUsedCreditLimit(creditLimit: unknown, availableLimit: u
   return Math.max(0, Math.round((limit - available) * 100) / 100);
 }
 
+export type LinkedInstallmentDebt = {
+  type: unknown;
+  linkedCardAccountId: number | null | undefined;
+  debt: unknown;
+};
+
+export function calculateEffectiveCreditCardDebt(
+  type: unknown,
+  debt: unknown,
+  cardAccountId: number | null | undefined,
+  linkedPlans: LinkedInstallmentDebt[],
+): number {
+  const normalizedDebt = Number(debt || 0);
+  if (!isCreditCardType(type) || cardAccountId == null) return normalizedDebt;
+  const installmentDebt = linkedPlans
+    .filter((plan) => isInstallmentPlanType(plan.type) && plan.linkedCardAccountId === cardAccountId)
+    .reduce((sum, plan) => sum + Number(plan.debt || 0), 0);
+  return Math.max(0, Math.round((normalizedDebt - installmentDebt) * 100) / 100);
+}
+
 export function optionalNumber(value: unknown): number | null {
   if (value === "" || value === null || value === undefined) return null;
   const parsed = Number(String(value).replace(",", "."));

@@ -24,8 +24,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (hideTimer.current) clearTimeout(hideTimer.current);
   }, []);
 
+  const contextValue = React.useMemo(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       {toast.visible && <Toast message={toast.message} type={toast.type as ToastType} />}
     </ToastContext.Provider>

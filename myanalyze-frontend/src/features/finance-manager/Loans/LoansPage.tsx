@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
 import ModulePage from "../../../components/ModulePage";
 import Modal from "../../../components/Modal";
+import ModalFormActions from "../../../components/ModalFormActions";
 import DataGrid, { DataGridColumn } from "../../../components/DataGrid";
 import IconButton from "../../../components/IconButton";
 import ResourceLoadError from "../../../components/ResourceLoadError";
@@ -13,23 +14,23 @@ import ModuleBadge from "../../../components/ModuleBadge";
 import { useToast } from "../../../context/ToastContext";
 import apiClient, { apiErrorMessage } from "../../../utils/apiClient";
 import { formatCurrency, formatDate, formatPercentage } from "../../../utils/formatters";
-import { CREDIT_PRODUCT_TYPES, financialProductBadgeTone, isCreditCardType, isInstallmentPlanType, normalizeCreditProductType, usesCalculatedDebt, type CreditProductType } from "../creditProductModel";
+import { calculateEffectiveCreditCardDebt, CREDIT_PRODUCT_TYPES, financialProductBadgeTone, isCreditCardType, isInstallmentPlanType, normalizeCreditProductType, usesCalculatedDebt, type CreditProductType } from "../creditProductModel";
 import { loanPayload, type Loan, validateLoan, withCalculatedLoanDates, withCalculatedLoanDebt } from "./loanModel";
 import { deleteSelectedRows } from "../../../utils/deleteSelectedRows";
 import { DebtPlanEditModal } from "../DebtPlanEditor";
 import { normalizeDebtPlan, type DebtPlan } from "../debtPlanModel";
 import { useExpenseStaleContext } from "../../../context/ExpenseStaleContext";
-import { ActiveStatusFilter, activeStatusColumn, filterByActiveStatus, type ActiveStatusFilterValue } from "../../../components/data-grid/ActiveStatus";
+import { activeStatusColumn } from "../../../components/data-grid/ActiveStatus";
 import { useLatestRequestGuard } from "../../../hooks/useLatestRequestGuard";
 
 const LOAN_TYPES = CREDIT_PRODUCT_TYPES.filter((type) => type !== "Karta kredytowa" && type !== "Plan ratalny");
 const cardIsReadOnly = (row: Loan) => isCreditCardType(row.typ) || isInstallmentPlanType(row.typ);
-const effectiveLoanDebt = (row: Loan, loans: Loan[]) => {
-  const debt = Number(row.kwota_calkowita || 0);
-  if (!isCreditCardType(row.typ) || row.card_account_id == null) return debt;
-  const installmentDebt = loans.filter((item) => isInstallmentPlanType(item.typ) && item.linked_card_account_id === row.card_account_id).reduce((sum, item) => sum + Number(item.kwota_calkowita || 0), 0);
-  return Math.max(0, Math.round((debt - installmentDebt) * 100) / 100);
-};
+const effectiveLoanDebt = (row: Loan, loans: Loan[]) => calculateEffectiveCreditCardDebt(
+  row.typ,
+  row.kwota_calkowita,
+  row.card_account_id,
+  loans.map((item) => ({ type: item.typ, linkedCardAccountId: item.linked_card_account_id, debt: item.kwota_calkowita })),
+);
 const numberEdit = (key: keyof Loan, min = 0, max?: number, step = 0.01) => ({
   type: "number" as const,
   min,
@@ -56,15 +57,14 @@ export default function LoansPage({ embedded = false, active = true }: { embedde
   const { begin: beginRequest, isLatest: isLatestRequest } = useLatestRequestGuard();
   const [paymentsModal, setPaymentsModal] = useState<{ open: boolean; loanId: number | null; readOnly: boolean }>({ open: false, loanId: null, readOnly: false });
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
-  const [showAdd, setShowAdd] = useState(false);
-  const [editedLoan, setEditedLoan] = useState<Loan | null>(null);
+  const [loanEditor, setLoanEditor] = useState<{ mode: "add" | "edit"; loan: Loan | null } | null>(null);
   const [productPlan, setProductPlan] = useState<DebtPlan | null>(null);
-  const [statusFilter, setStatusFilter] = useState<ActiveStatusFilterValue>("active");
-  const displayLoans = useMemo(() => filterByActiveStatus(loans, statusFilter), [loans, statusFilter]);
-  const totals = useMemo(() => displayLoans.reduce((sum, loan) => ({
+  const [loanFormSaving, setLoanFormSaving] = useState(false);
+  const activeLoans = useMemo(() => loans.filter((loan) => loan.active !== false), [loans]);
+  const totals = useMemo(() => activeLoans.reduce((sum, loan) => ({
     debt: sum.debt + effectiveLoanDebt(loan, loans),
     installment: sum.installment + (Number(loan.kwota_raty) || 0),
-  }), { debt: 0, installment: 0 }), [displayLoans, loans]);
+  }), { debt: 0, installment: 0 }), [activeLoans, loans]);
 
   const fetchLoans = React.useCallback(async () => {
     const requestVersion = beginRequest();
@@ -125,7 +125,7 @@ export default function LoansPage({ embedded = false, active = true }: { embedde
       const response = await apiClient.get("/debt-plans");
       const plan = (Array.isArray(response.data) ? response.data : []).map(normalizeDebtPlan).find((item) => item.loan_id === loan.id);
       if (plan) setProductPlan(plan);
-      else setEditedLoan(loan);
+      else setLoanEditor({ mode: "edit", loan });
     } catch { showToast("Nie udało się otworzyć produktu.", "error"); }
   };
 
@@ -159,12 +159,11 @@ export default function LoansPage({ embedded = false, active = true }: { embedde
     }
   };
 
-  const addAction = <IconButton label="Dodaj kredyt" tone="primary" onClick={() => setShowAdd(true)}><Plus size={21} aria-hidden="true" /></IconButton>;
+  const addAction = <IconButton label="Dodaj kredyt" tone="primary" onClick={() => setLoanEditor({ mode: "add", loan: null })}><Plus size={21} aria-hidden="true" /></IconButton>;
   const content = <>
     {loadError && loans.length === 0 && loaded ? <ResourceLoadError blocking message={loadError} retrying={refreshing} onRetry={() => void fetchLoans()} /> : <>
     {loadError && <ResourceLoadError message={loadError} retrying={refreshing} onRetry={() => void fetchLoans()} />}
-    <DataGrid gridId="loans" rows={displayLoans} columns={columns} getRowId={(loan) => loan.id} loading={refreshing} emptyMessage="Brak kredytów do wyświetlenia." selectable isRowSelectable={(loan) => !cardIsReadOnly(loan)} onDeleteSelected={removeSelected} deleteSelectedConfirmMessage={(selected) => `Czy na pewno usunąć ${selected.length === 1 ? "zaznaczony kredyt" : `${selected.length} zaznaczone kredyty`}? Powiązane Zobowiązania i stałe wydatki również zostaną usunięte.`} exportFileName="kredyty.csv" actionsWidth={190} onInlineSave={saveInlineLoan} validateInlineRow={validateLoan} toolbar={<>
-      <ActiveStatusFilter ariaLabel="Status kredytów" value={statusFilter} onChange={setStatusFilter} />
+    <DataGrid gridId="loans" rows={loans} columns={columns} getRowId={(loan) => loan.id} loading={refreshing} emptyMessage="Brak kredytów do wyświetlenia." selectable isRowSelectable={(loan) => !cardIsReadOnly(loan)} onDeleteSelected={removeSelected} deleteSelectedConfirmMessage={(selected) => `Czy na pewno usunąć ${selected.length === 1 ? "zaznaczony kredyt" : `${selected.length} zaznaczone kredyty`}? Powiązane Zobowiązania i stałe wydatki również zostaną usunięte.`} exportFileName="kredyty.csv" actionsWidth={190} onInlineSave={saveInlineLoan} validateInlineRow={validateLoan} defaultFilters={{ active: "Aktywne" }} toolbar={<>
       <ModuleBadge size="sm" tone="danger">Zadłużenie: {formatCurrency(totals.debt)}</ModuleBadge>
       <ModuleBadge size="sm" tone="warning">Raty / m-c: {formatCurrency(totals.installment)}</ModuleBadge>
       {embedded && addAction}
@@ -177,8 +176,9 @@ export default function LoansPage({ embedded = false, active = true }: { embedde
     </>}
     {paymentsModal.open && paymentsModal.loanId !== null && <LoanPaymentsModal open loanId={paymentsModal.loanId} readOnly={paymentsModal.readOnly} onClose={() => setPaymentsModal({ open: false, loanId: null, readOnly: false })} />}
     <ConfirmModal open={confirmModal.open} message={loans.find((loan) => loan.id === confirmModal.id)?.recurring_expense_id ? "Czy usunąć kredyt i powiązany z nim wydatek stały?" : "Czy na pewno chcesz usunąć ten kredyt?"} confirmLabel="Tak, usuń" cancelLabel="Anuluj" onConfirm={handleConfirmDelete} onCancel={() => setConfirmModal({ open: false, id: null })} />
-    <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Dodaj kredyt" description="Uzupełnij podstawowe dane oraz koszty finansowania." size="lg"><LoanForm onCancel={() => setShowAdd(false)} onSuccess={() => { setShowAdd(false); fetchLoans(); showToast("Kredyt dodany.", "success"); }} /></Modal>
-    <Modal open={editedLoan !== null} onClose={() => setEditedLoan(null)} title="Edytuj kredyt" description="Puste pola możesz uzupełnić teraz lub później bezpośrednio w tabeli." size="lg">{editedLoan && <LoanForm loan={editedLoan} onCancel={() => setEditedLoan(null)} onSuccess={() => { setEditedLoan(null); fetchLoans(); showToast("Kredyt zapisany.", "success"); }} />}</Modal>
+    <Modal open={loanEditor !== null} onClose={() => { if (!loanFormSaving) setLoanEditor(null); }} title={loanEditor?.mode === "edit" ? "Edytuj kredyt" : "Dodaj kredyt"} description={loanEditor?.mode === "edit" ? "Puste pola możesz uzupełnić teraz lub później bezpośrednio w tabeli." : "Uzupełnij podstawowe dane oraz koszty finansowania."} size="lg" footer={loanEditor && <ModalFormActions saving={loanFormSaving} onCancel={() => setLoanEditor(null)} form="loan-form" submitLabel={loanEditor.mode === "edit" ? "Zapisz zmiany" : "Dodaj kredyt"} />}>
+      {loanEditor && <LoanForm loan={loanEditor.mode === "edit" ? loanEditor.loan ?? undefined : undefined} formId="loan-form" onSavingChange={setLoanFormSaving} onSuccess={() => { const mode = loanEditor.mode; setLoanEditor(null); void fetchLoans(); showToast(mode === "edit" ? "Kredyt zapisany." : "Kredyt dodany.", "success"); }} />}
+    </Modal>
     <DebtPlanEditModal plan={productPlan} onClose={() => setProductPlan(null)} onSaved={fetchLoans} />
   </>;
 

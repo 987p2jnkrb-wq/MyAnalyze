@@ -18,12 +18,19 @@ export function formatCurrency(value: unknown, currency = getAppCurrency()): str
   }
 }
 
-export function formatDate(value: unknown): string {
+export function formatDate(value: unknown, options?: Intl.DateTimeFormatOptions): string {
   const normalized = String(value ?? "").trim();
   if (!normalized || ["none", "null", "undefined"].includes(normalized.toLowerCase())) return "-";
   if (/^\d{4}-\d{2}-\d{2}/.test(normalized) && !isValidDateOnly(normalized.slice(0, 10))) return normalized;
   const date = new Date(normalized);
-  return Number.isNaN(date.getTime()) ? normalized : date.toLocaleDateString(getAppLocale());
+  return Number.isNaN(date.getTime()) ? normalized : date.toLocaleDateString(getAppLocale(), options);
+}
+
+export function formatDateTime(value: unknown): string {
+  const normalized = String(value ?? "").trim();
+  if (!normalized || ["none", "null", "undefined"].includes(normalized.toLowerCase())) return "-";
+  const date = value instanceof Date ? value : new Date(normalized.replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? normalized : date.toLocaleString(getAppLocale());
 }
 
 export function formatPercentage(value: unknown): string {
